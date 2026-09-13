@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000">
-  <title>King Avaron ? Retro Boss Fight</title>
+  <title>King Avaron — Retro Boss Fight</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
@@ -13,7 +13,7 @@
     <header class="masthead">
       <div class="utilities">
         <button id="fullscreen-button" class="utility" type="button" aria-label="Layar Penuh">LAYAR PENUH</button>
-        <button id="sound-button" class="utility" type="button" aria-pressed="true">? SUARA: ON</button>
+        <button id="sound-button" class="utility" type="button" aria-pressed="true" aria-label="Matikan suara">♪ ON</button>
       </div>
     </header>
 
@@ -40,7 +40,7 @@
 
       <div class="battle-hud">
         <div class="player-status">
-          <span class="player-name"><i class="heart-icon" aria-hidden="true">?</i> WANDERER</span>
+          <span class="player-name"><i class="heart-icon" aria-hidden="true">♥</i> WANDERER</span>
           <span class="level">LV 01</span>
           <div class="player-health">
             <span>HP</span>
@@ -53,41 +53,41 @@
         </div>
 
         <div id="dialogue-box" class="dialogue-box">
-          <span class="dialogue-star" aria-hidden="true">?</span>
+          <span class="dialogue-star" aria-hidden="true">✦</span>
           <div class="dialogue-content">
             <p id="speaker">KING AVARON</p>
-            <p id="dialogue" aria-live="polite">?Di balik gerbang ini, tak ada takhta. Hanya dunia yang belum mengenal lukanya.?</p>
+            <p id="dialogue" aria-live="polite">“Di balik gerbang ini, tak ada takhta. Hanya dunia yang belum mengenal lukanya.”</p>
           </div>
-          <button id="continue-button" class="continue-button" type="button" aria-label="Lanjutkan dialog">ENTER <span aria-hidden="true">?</span></button>
+          <button id="continue-button" class="continue-button" type="button" aria-label="Lanjutkan dialog">ENTER <span aria-hidden="true">↵</span></button>
         </div>
 
         <nav class="actions" aria-label="Menu pertarungan">
           <button class="action selected" data-action="fight" type="button" disabled>
-            <span class="action-icon" aria-hidden="true">?</span>
+            <span class="action-icon" aria-hidden="true">⚔</span>
             <span>FIGHT</span>
           </button>
           <button class="action" data-action="act" type="button" disabled>
-            <span class="action-icon" aria-hidden="true">?</span>
+            <span class="action-icon" aria-hidden="true">✧</span>
             <span>ACT</span>
           </button>
           <button class="action" data-action="item" type="button" disabled>
-            <span class="action-icon" aria-hidden="true">?</span>
+            <span class="action-icon" aria-hidden="true">▣</span>
             <span>ITEM</span>
           </button>
           <button class="action" data-action="mercy" type="button" disabled>
-            <span class="action-icon" aria-hidden="true">?</span>
+            <span class="action-icon" aria-hidden="true">♡</span>
             <span>MERCY</span>
           </button>
         </nav>
       </div>
 
       <div class="touch-controls" aria-label="Kontrol sentuh">
-        <button data-key="arrowleft" aria-label="Kiri">?</button>
+        <button data-key="arrowleft" aria-label="Kiri">←</button>
         <div>
-          <button data-key="arrowup" aria-label="Atas">?</button>
-          <button data-key="arrowdown" aria-label="Bawah">?</button>
+          <button data-key="arrowup" aria-label="Atas">↑</button>
+          <button data-key="arrowdown" aria-label="Bawah">↓</button>
         </div>
-        <button data-key="arrowright" aria-label="Kanan">?</button>
+        <button data-key="arrowright" aria-label="Kanan">→</button>
         <button data-key="shift" class="slow-button">SLOW</button>
       </div>
     </section>
