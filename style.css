@@ -1,0 +1,110 @@
+/* Font pixel 5x7 original disematkan agar tidak memerlukan file atau internet. */
+@font-face { font-family: 'Crown Pixel'; font-style: normal; font-weight: 400 900; font-display: swap; src: url('data:font/woff2;base64,d09GMgABAAAAAAQEAAoAAAAAHSAAAAO5AAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAATAqxHKlgATYCJANQC1AABCAFgggHgggbZRgRVZNnZFoc2E5oaBieo8zcu9KrlJRSuvrpn2E8fK2V73fPYi/2bZ2+sLuKJNSIMwEAFaFRRsoIlfhUjDt4/E78WJISla7k+cUObPMreXTiCdieDy8BRusJgrn9zRzXtUppuMEYcxqE+t/v1+o/K9a2BLQ0k1jwiyUNXS0yc/be/96+h2mrm0mQCkNoNp3QSJEW2Mzpye6rHSsldEhTSHYVfG0v/o5y+hlf9TRe+oWyo4njG67n1+vD4xO8gMqGxgkZK1msq419LxkbSpINm/a7vrWwr+51/AP6W//1W1/BVPZ4v6dJexj+YhRgCKhWpqpqZmlpbmKmqJYW5paquWJuqpoam1szNjM3c8+W5T94Q2M2WkUgOkzd52svQK4Tg1500Fi6Qi1nvYsIhVDwq9acgnMzermWutXUO7aEwe2g0Es9nLyMYoWTh44l88qalJW7AhevSfliLmIhGD0CxQ2+QNkzSTgFz97dOOtWo2fZ6ZyDnpfXRbh7vdDQ1apzF0DgIp2NNr2L4TKX2Sp5dOHS6Ez0SIDTexdltEguSKWz6kZcP7V2p3xQadFGXeRW8Nl0+VBo6bSdvvAs9qJ+uXTqYV/Le9p2ionqNGsZ2viWTn/dJntMTBvuFYPY/2KqiKWMsqe/bzxAHNyUeU5LfpaM18bkD0Xk+aQrjXKjyosUhDCRy6lbtSTx+gwpMARP2goQjBrBCg7iS1St6lTiTHq9wWA1EHcHvToTkFKzAnJfcDbg+CQv5IDKxvMKd8ZTtg9qatnaDdKu/ajvUn0xeCXFb+dkUbi/Nd3H9QleE5Gz6b2OIC3NPCCmmWB0MSv1KvLTOX+vySigl5TpeJN54OTVQEWsrWpUiA7zBCLbD8s1+QIUWMqm4ueV0E8YnoOiWq3OKOykqW+vCsIMwPoxy6AUCPVEeYrsCHpVGA5HSP0tUxoHS1SE8PG6vMwF/siftb/vdjz0Fvk//Ps9qetXpN1pQpZA8OHrtvQTLx1PRHiZjqt/CEqh3R5nrQyRtBv7EmEjFPZNyUBpyqrqNu7n+8Z2RhbNSFi3CU3JzKmmbGecdxto0Lfy8Xj76pP/bmjiK/jHzsZmk59SnIBfweEtlxtFbPh54jMeeI7zHniED57jjrfWgXPljLd4AtUnXnb9/BYpXt7iLCRSmVyhVKk1Wp3eYDRZWFpZ29ja2Ts4Ojm7uLq5x8MzXt4+vub8txBGcMmXU2gMFoRgBJd8+QqNwYIQjOCSL31Ncw8mGgY0BgtCcJJprud3AAA=') format('woff2'); }
+:root { color-scheme: dark; --gold: #ffb52e; --text: #faf6ed; --muted: #a59e93; --red: #ff304b; --pixel: 'Crown Pixel', 'Courier New', monospace; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #000; color: var(--text); font: 12px 'Courier New', monospace; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; cursor: pointer; border-radius: 0; }
+button:disabled { cursor: default; }
+button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+[hidden] { display: none !important; }
+.game-shell { position: relative; width: 100%; height: 100vh; height: 100dvh; isolation: isolate; }
+.masthead { position: absolute; z-index: 4; top: env(safe-area-inset-top, 0px); left: 0; right: 0; height: 40px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+.wordmark { color: var(--muted); text-decoration: none; font-size: 10px; letter-spacing: 2px; }
+.tiny-crown { color: var(--gold); margin-right: 8px; }
+.edition, .title-row, footer, .original-note, .boss-subtitle, .arena-caption > span:first-child { display: none; }
+.utilities { display: flex; gap: 6px; }
+.utility { padding: 7px 9px; border: 1px solid #534939; color: var(--muted); background: #000; font-size: 9px; }
+.utility:hover, .utility[aria-pressed='true'] { border-color: var(--gold); color: var(--gold); }
+.battle-panel, .stage-wrap { position: absolute; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; outline: none; }
+.boss-status { position: absolute; z-index: 2; top: 52px; left: 50%; transform: translateX(-50%); width: min(500px, calc(100% - 32px)); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+h2 { margin: 0; font: 16px var(--pixel); letter-spacing: 2px; }
+.boss-health { display: flex; gap: 10px; align-items: center; font-size: 10px; }
+#phase-label { color: var(--gold); font-size: 9px; }
+.health-track { width: 130px; height: 10px; background: #68221e; overflow: hidden; }
+.health-track > div { width: 100%; height: 100%; transition: width .2s; }
+#boss-fill { background: #eee4d2; }
+#player-fill { background: #ffcf32; }
+.stage-caption { position: absolute; top: var(--caption-top, 260px); left: 50%; transform: translateX(-50%); width: var(--box-width, 500px); display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9px; pointer-events: none; }
+.stage-caption span:first-child { color: var(--gold); white-space: nowrap; }
+#pattern-label { text-align: right; }
+.arena-caption { position: absolute; top: var(--timer-top, 570px); left: 50%; transform: translateX(-50%); color: var(--gold); font-size: 9px; white-space: nowrap; pointer-events: none; }
+.battle-hud { position: absolute; z-index: 3; top: var(--hud-top, auto); bottom: auto; left: 50%; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.player-status { display: flex; align-items: center; gap: 12px; height: 32px; font-weight: bold; }
+.player-name { white-space: nowrap; }
+.heart-icon { color: var(--red); margin-right: 6px; }
+.level { margin-left: 12px; color: #fff; }
+.player-health { display: flex; align-items: center; gap: 8px; margin-left: auto; white-space: nowrap; }
+.player-health .health-track { width: 80px; height: 13px; }
+#item-count { font-size: 9px; color: var(--muted); white-space: nowrap; }
+.dialogue-box { height: 86px; display: flex; gap: 10px; border: 3px solid #f4f1e9; padding: 10px 12px; background: #000; }
+.dialogue-star { color: var(--gold); font-size: 20px; }
+.dialogue-content { flex: 1; min-width: 0; overflow-y: auto; }
+#speaker { color: var(--gold); font-size: 9px; letter-spacing: 1px; margin: 0 0 5px; }
+#dialogue { margin: 0; font-size: 12px; line-height: 1.5; }
+.continue-button { align-self: flex-end; background: #000; border: 0; color: var(--gold); padding: 4px; font-size: 9px; white-space: nowrap; }
+.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+.action { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 3px; border: 3px solid var(--gold); background: #000; color: var(--gold); }
+.action > span:nth-child(2) { font: 19px var(--pixel); }
+.action-icon { font-size: 20px; }
+.action small, .action kbd { display: none; }
+.action:disabled { opacity: .28; }
+.action.selected:not(:disabled), .action:hover:not(:disabled), .action:focus-visible { color: #ffeb48; border-color: #ffeb48; background: #282008; }
+.action.ready:not(:disabled) { border-color: #fff; }
+.control-hint { margin: 9px 0 0; text-align: center; color: var(--muted); font-size: 8px; line-height: 1.5; }
+
+
+.pause-overlay { position: absolute; z-index: 6; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000e; padding: 24px; text-align: center; }
+.pause-overlay strong { font: 28px var(--pixel); color: var(--gold); }
+.pause-overlay button { border: 3px solid var(--gold); padding: 12px; background: #000; color: var(--gold); }
+.touch-controls { display: none; }
+body[data-phase='3'] #boss-fill { background: #ff684b; }
+@media (pointer: coarse) {
+  /* Pad sentuh menggantikan dialog saat serangan, tidak menutupi arena. */
+  body[data-state='bossAttack'] .touch-controls { display: flex; position: absolute; z-index: 4; top: calc(var(--hud-top) + 35px); left: 50%; transform: translateX(-50%); align-items: center; gap: 12px; height: 80px; }
+  body[data-state='bossAttack'] .dialogue-box { visibility: hidden; }
+  .touch-controls > div { display: grid; gap: 4px; }
+  .touch-controls button { width: 44px; height: 36px; border: 2px solid var(--gold); color: var(--gold); background: #000; touch-action: none; user-select: none; }
+}
+@media (max-width: 600px) {
+  .masthead { padding: 0 8px; }
+  .wordmark { font-size: 8px; letter-spacing: 0; }
+  .tiny-crown { display: none; }
+  .utility { padding: 7px 5px; font-size: 8px; }
+  .battle-hud { width: calc(100% - 24px); }
+  .player-status { gap: 5px; font-size: 10px; }
+  .player-name .heart-icon, #item-count { display: none; }
+  .level { margin-left: 5px; }
+  .player-health { gap: 5px; }
+  .player-health .health-track { width: 45px; }
+  .dialogue-box { height: 100px; padding: 8px; gap: 6px; }
+  .dialogue-star { display: none; }
+  #dialogue { font-size: 11px; }
+  .actions { gap: 6px; }
+  .action { gap: 4px; padding: 9px 2px; }
+  .action > span:nth-child(2) { font-size: 13px; }
+  .action-icon { font-size: 14px; }
+  .control-hint { font-size: 7px; }
+  .stage-caption { font-size: 8px; }
+}
+@media (max-height: 540px) {
+  .masthead { height: 28px; }
+  .utility { padding: 4px 6px; }
+  .boss-status { top: 32px; gap: 4px; }
+  h2 { font-size: 12px; }
+  .boss-health { font-size: 8px; }
+  .health-track { height: 6px; }
+  .battle-hud { width: min(640px, calc(100% - 24px)); padding-bottom: 4px; }
+  .player-status { height: 24px; font-size: 10px; }
+  .dialogue-box { height: 45px; padding: 5px 8px; }
+  #speaker, .control-hint { display: none; }
+  #dialogue { font-size: 10px; line-height: 1.4; }
+  .actions { margin-top: 5px; }
+  .action { padding: 4px; }
+  .action > span:nth-child(2) { font-size: 14px; }
+  body[data-state='bossAttack'] .touch-controls { top: calc(var(--hud-top) + 25px); height: 43px; gap: 8px; }
+  .touch-controls > div { display: flex; }
+  .touch-controls button { height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

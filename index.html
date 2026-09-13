@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#000000">
+  <title>King Avaron ? Retro Boss Fight</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="game-shell">
+    <header class="masthead">
+      <div class="utilities">
+        <button id="fullscreen-button" class="utility" type="button" aria-label="Layar Penuh">LAYAR PENUH</button>
+        <button id="sound-button" class="utility" type="button" aria-pressed="true">? SUARA: ON</button>
+      </div>
+    </header>
+
+    <section class="battle-panel" aria-label="Pertarungan melawan King Avaron">
+      <div class="boss-status">
+        <h2>KING AVARON</h2>
+        <div class="boss-health">
+          <span id="phase-label">PHASE I</span>
+          <div id="boss-meter" class="health-track" role="progressbar" aria-label="HP King Avaron" aria-valuemin="0" aria-valuemax="180" aria-valuenow="180">
+            <div id="boss-fill"></div>
+          </div>
+          <span id="boss-hp">180 / 180</span>
+        </div>
+      </div>
+
+      <div class="stage-wrap">
+        <canvas id="battle" width="800" height="600" tabindex="0" aria-label="Battle box retro. Gerakkan hati merah dengan WASD atau tombol panah.">Canvas tidak didukung.</canvas>
+        <div id="pause-overlay" class="pause-overlay" hidden>
+          <strong>PAUSED</strong>
+          <p>Tarik napas. Pertarungan masih menunggumu.</p>
+          <button id="resume-button" type="button">LANJUTKAN</button>
+        </div>
+      </div>
+
+      <div class="battle-hud">
+        <div class="player-status">
+          <span class="player-name"><i class="heart-icon" aria-hidden="true">?</i> WANDERER</span>
+          <span class="level">LV 01</span>
+          <div class="player-health">
+            <span>HP</span>
+            <div id="player-meter" class="health-track" role="progressbar" aria-label="HP pemain" aria-valuemin="0" aria-valuemax="40" aria-valuenow="40">
+              <div id="player-fill"></div>
+            </div>
+            <strong id="player-hp">40 / 40</strong>
+          </div>
+          <span id="item-count">ITEMS: 2/2</span>
+        </div>
+
+        <div id="dialogue-box" class="dialogue-box">
+          <span class="dialogue-star" aria-hidden="true">?</span>
+          <div class="dialogue-content">
+            <p id="speaker">KING AVARON</p>
+            <p id="dialogue" aria-live="polite">?Di balik gerbang ini, tak ada takhta. Hanya dunia yang belum mengenal lukanya.?</p>
+          </div>
+          <button id="continue-button" class="continue-button" type="button" aria-label="Lanjutkan dialog">ENTER <span aria-hidden="true">?</span></button>
+        </div>
+
+        <nav class="actions" aria-label="Menu pertarungan">
+          <button class="action selected" data-action="fight" type="button" disabled>
+            <span class="action-icon" aria-hidden="true">?</span>
+            <span>FIGHT</span>
+          </button>
+          <button class="action" data-action="act" type="button" disabled>
+            <span class="action-icon" aria-hidden="true">?</span>
+            <span>ACT</span>
+          </button>
+          <button class="action" data-action="item" type="button" disabled>
+            <span class="action-icon" aria-hidden="true">?</span>
+            <span>ITEM</span>
+          </button>
+          <button class="action" data-action="mercy" type="button" disabled>
+            <span class="action-icon" aria-hidden="true">?</span>
+            <span>MERCY</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="touch-controls" aria-label="Kontrol sentuh">
+        <button data-key="arrowleft" aria-label="Kiri">?</button>
+        <div>
+          <button data-key="arrowup" aria-label="Atas">?</button>
+          <button data-key="arrowdown" aria-label="Bawah">?</button>
+        </div>
+        <button data-key="arrowright" aria-label="Kanan">?</button>
+        <button data-key="shift" class="slow-button">SLOW</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
