@@ -821,7 +821,7 @@ function updatePlayer(dt) {
     if (game.gy) game.x += Math.sign(dx) * Math.min(speed * dt, Math.abs(dx) > 1 ? Math.abs(dx) : Infinity);
     else game.y += Math.sign(dy) * Math.min(speed * dt, Math.abs(dy) > 1 ? Math.abs(dy) : Infinity);
     game.x += game.gx * game.vy * dt; game.y += game.gy * game.vy * dt;
-    game.grounded = game.gx > 0 ? game.x >= ARENA.x + ARENA.w - 9 : game.gx < 0 ? game.x <= ARENA.x + 9 : game.gy > 0 ? game.y >= ARENA.y + ARENA.h - 9 : game.y <= ARENA.y + 9;
+    game.grounded = game.gx > 0 ? game.x >= ARENA.x + ARENA.w - 12 : game.gx < 0 ? game.x <= ARENA.x + 12 : game.gy > 0 ? game.y >= ARENA.y + ARENA.h - 12 : game.y <= ARENA.y + 12;
     if (game.grounded) game.vy = 0;
   } else if (game.movement === 'lanes') {
     game.x += Math.sign(dx) * Math.min(speed * dt, touchTarget && !keys.size ? Math.abs(dx) : Infinity);
@@ -847,8 +847,8 @@ function updatePlayer(dt) {
         if (p.crumble && !p.stepped) { p.stepped = true; p.life = Math.min(p.life, p.age + 1.05); }
       }
     }
-    if (game.y >= ARENA.y + ARENA.h - 9) { game.y = ARENA.y + ARENA.h - 9; game.vy = 0; game.grounded = true; }
-    if (game.y <= ARENA.y + 9) game.vy = Math.max(0, game.vy);
+    if (game.y >= ARENA.y + ARENA.h - 12) { game.y = ARENA.y + ARENA.h - 12; game.vy = 0; game.grounded = true; }
+    if (game.y <= ARENA.y + 12) game.vy = Math.max(0, game.vy);
   } else {
     const length = Math.hypot(dx, dy) || 1;
     game.x += dx / length * step; game.y += dy / length * step;
@@ -858,8 +858,8 @@ function updatePlayer(dt) {
     game.driftY = gravity ? clamp(game.driftY + gravity.gy * 650 * scale * dt, -180 * scale, 180 * scale) : 0;
     game.x += game.driftX * dt; game.y += game.driftY * dt;
   }
-  game.x = clamp(game.x, ARENA.x + 9, ARENA.x + ARENA.w - 9);
-  game.y = clamp(game.y, ARENA.y + 9, ARENA.y + ARENA.h - 9);
+  game.x = clamp(game.x, ARENA.x + 12, ARENA.x + ARENA.w - 12);
+  game.y = clamp(game.y, ARENA.y + 12, ARENA.y + ARENA.h - 12);
   // Ukur gerakan nyata, bukan tombol: menahan arah ke border tetap dihitung diam.
   game.moving = Math.hypot(game.x - previousX, game.y - previousY) > 0.001;
 }
@@ -1023,8 +1023,8 @@ function pixelSprite(rows, x, y, scale, palette) {
 const heartSprite = ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'];
 function drawHeart(x, y, broken = false) {
   const color = game.state === 'bossAttack' ? { shield: '#46ed77', gravity: '#559cff', platform: '#559cff', lanes: '#c18aff' }[game.movement] : null;
-  pixelSprite(heartSprite, x - 7, y - 6, 2, { r: color || COLORS.red });
-  if (broken) { rect(x, y - 6, 2, 6, '#080909'); rect(x - 2, y, 2, 5, '#080909'); }
+  pixelSprite(heartSprite, x - 10.5, y - 9, 3, { r: color || COLORS.red });
+  if (broken) { rect(x, y - 9, 3, 9, '#080909'); rect(x - 3, y, 3, 8, '#080909'); }
 }
 const kingSprite = [
   '.......g......g......g.......',
@@ -1192,7 +1192,7 @@ function drawHazard(h) {
     ctx.globalAlpha = 1;
   } else if (h.type === 'ribbon') {
     const color = h.rule === 'still' ? '#62dfff' : '#ff9d46';
-    const x = h.fromRight ? ARENA.x + ARENA.w - 9 : ARENA.x + 9;
+    const x = h.fromRight ? ARENA.x + ARENA.w - 12 : ARENA.x + 12;
     ctx.setLineDash([7, 7]);
     line(x, ARENA.y, x, ARENA.y + ARENA.h, color, 3); ctx.setLineDash([]);
     ctx.textAlign = 'center'; ctx.fillStyle = color; ctx.font = '12px "Crown Pixel", monospace';
@@ -1421,7 +1421,7 @@ function draw() {
     drawHeart(game.x, game.y);
     if (keys.has('shift') && game.state === 'bossAttack') {
       ctx.strokeStyle = '#dfd8c1'; ctx.lineWidth = 1;
-      ctx.strokeRect(Math.round(game.x) - 10, Math.round(game.y) - 9, 20, 19);
+      ctx.strokeRect(Math.round(game.x) - 13, Math.round(game.y) - 12, 26, 25);
       rect(game.x - 1, game.y - 1, 2, 2, '#ffffff');
     }
   }
@@ -1727,8 +1727,8 @@ function resizeGame() {
   const gap = short ? 12 : 18;
   const statusHeight = document.querySelector('.boss-status').getBoundingClientRect().height;
   const available = Math.max(100, VIEW.h - margin * 2 - statusHeight - hud.height - gap);
-  ARENA.w = Math.round(Math.min(800, VIEW.w - 32));
-  ARENA.h = Math.round(Math.min(480, ARENA.w * 0.6, available * 0.68));
+  ARENA.w = Math.round(Math.min(520, VIEW.w - 48));
+  ARENA.h = Math.round(Math.min(300, ARENA.w * 0.6, available * 0.68));
   const bossHeight = Math.min(270, available - ARENA.h);
   VIEW.bossScale = clamp((bossHeight - 30) / 180, .18, 1.4);
   const groupHeight = statusHeight + bossHeight + ARENA.h + gap + hud.height;
@@ -1756,8 +1756,8 @@ function resizeGame() {
     if (object.type === 'wall') object.width *= sx;
   };
   remap(game);
-  game.x = clamp(game.x, ARENA.x + 9, ARENA.x + ARENA.w - 9);
-  game.y = clamp(game.y, ARENA.y + 9, ARENA.y + ARENA.h - 9);
+  game.x = clamp(game.x, ARENA.x + 12, ARENA.x + ARENA.w - 12);
+  game.y = clamp(game.y, ARENA.y + 12, ARENA.y + ARENA.h - 12);
   for (const object of [...game.hazards, ...game.bullets, ...game.particles]) remap(object);
   game.bossX = clampBossX(ARENA.x + (game.bossX - old.x) * sx);
   game.bossY = bossCenterY();
@@ -1769,8 +1769,8 @@ function resizeGame() {
 }
 function setTouchTarget(event) {
   const bounds = canvas.getBoundingClientRect();
-  touchTarget = { x: clamp(event.clientX - bounds.left, ARENA.x + 9, ARENA.x + ARENA.w - 9),
-    y: clamp(event.clientY - bounds.top, ARENA.y + 9, ARENA.y + ARENA.h - 9) };
+  touchTarget = { x: clamp(event.clientX - bounds.left, ARENA.x + 12, ARENA.x + ARENA.w - 12),
+    y: clamp(event.clientY - bounds.top, ARENA.y + 12, ARENA.y + ARENA.h - 12) };
 }
 canvas.addEventListener('pointerdown', event => {
   if (!['bossAttack', 'tutorialMove', 'tutorialDodge'].includes(game.state) || game.paused || touchPointer !== null) return;
