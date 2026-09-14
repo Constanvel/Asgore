@@ -176,7 +176,8 @@ assert.equal(run('game.hazards.some(h => checkCollision(h))'), false, 'ada satu 
 run('game.hazards = []; spawnGravityRun(2); update(.86)');
 assert.equal(run('game.movement'), 'gravity');
 assert.equal(run('game.gy'), -1, 'telegraph shift mengubah gravitasi ke langit-langit');
-assert.equal(run('game.hazards.filter(h => h.type === "hurdle").length'), 3);
+assert.equal(run('game.hazards.filter(h => h.type === "hurdle").length'), 5);
+assert.ok(run('new Set(game.hazards.filter(h => h.type === "hurdle").map(h => h.h)).size >= 4'), 'variasi tinggi memerlukan timing lompatan berbeda');
 const motions = new Set();
 for (let i = 0; i < 5; i++) { run(`prepareBossAttack(${i})`); motions.add(run('game.bossMotion')); }
 assert.equal(motions.size, 5, 'lima variasi gerakan boss');
@@ -332,4 +333,12 @@ assert.equal(run('game.grounded'), true);
 assert.ok(run('game.hazards[0].life - game.hazards[0].age <= 1.05'), 'pijakan mulai runtuh setelah diinjak');
 run('keys.add(" "); update(.02)');
 assert.ok(run('game.vy < 0'), 'dapat melompat keluar dari pijakan runtuh');
-console.log('PASS: emitter/safe corridor, moving/crumbling parkour, combat, MP3 and state flow');
+run('resetGame(); openMenu(); startAttack(); game.hazards = []; game.phase = 3; spawnLaneRun(0)');
+assert.equal(run('game.hazards.filter(h => h.type === "beam").length'), 6);
+assert.equal(run('game.hazards.filter(h => h.type === "slash").length'), 1);
+for (let burst = 0; burst < 3; burst++) {
+  const safe = [1, 0, 2][burst];
+  assert.ok(run(`game.hazards.slice(${burst*2}, ${burst*2+2}).every(h => Math.abs(h.y - (ARENA.y + ARENA.h * (${safe}+1)/4)) > 1)`), 'tiap burst menyisakan satu jalur aman');
+}
+assert.ok(run('game.hazards[0].warn >= ARENA.h / (1300 * combatScale()) + .17'), 'waktu warning cukup untuk melintasi dua lane');
+console.log('PASS: harder gravity/lane sequences, safe routes, parkour, combat and audio');

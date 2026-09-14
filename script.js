@@ -319,8 +319,8 @@ function startAttack() {
     'TARIKAN MAHKOTA — Panah ungu menunjukkan gravitasi. Lawan tarikan sambil menghindari tembakan.',
     'PIJAKAN ABU — Atas / W / Spasi: lompat. Pijakan bergerak dan runtuh satu detik setelah diinjak. Lompat antar tingkat, hindari palang yang melintas.',
     'SUMPAH PALSU — Tinggalkan garis bidik, baca tebasan. Jebakan berakhir setelah enam detik.',
-    'RODA HUKUM — Gravitasi berputar! Spasi / ↥: lompat menjauhi dinding. Lepas lebih cepat untuk lompat pendek.',
-    'BENANG TAKDIR — Atas/bawah: pindah jalur. Kiri/kanan: bergerak di jalur. Hindari dua jalur bertanda.',
+    'RODA HUKUM — Lima rintangan rendah/tinggi beruntun. Spasi / ↥: lompat; tahan untuk rintangan tinggi, lepas untuk lompatan pendek.',
+    'BENANG TAKDIR — Tiga pergantian jalur beruntun. Atas/bawah: pindah jalur. Kiri/kanan: hindari tebasan vertikal pada pergantian terakhir.',
     'PENGADILAN SINAR — Meriam mengunci posisi saat muncul. Keluar dari garis bidik sebelum sinar menyala.',
     'CROSSFIRE — Tinggalkan titik bidik. Meriam bersilang, lalu cincin menutup ruang gerak.',
     'PERISAI HIJAU — Rentetan lima panah. Hadapkan perisai ke asal panah; yang biru tiba paling dahulu.',
@@ -526,9 +526,10 @@ function spawnGravityRun(w) {
   addHazard('shift', { gx, gy }, .85, .12);
   const vertical = gy !== 0, scale = combatScale();
   const length = vertical ? ARENA.w : ARENA.h;
-  const velocity = (game.phase >= 3 ? 380 : 325) * scale;
-  for (let i = 0; i < 3; i++) {
-    const size = (i % 2 ? 96 : 50) * scale, thickness = 22 * scale;
+  const velocity = (game.phase >= 3 ? 410 : 365) * scale;
+  const heights = w % 2 ? [58, 100, 42, 90, 38] : [42, 90, 58, 100, 38];
+  for (let i = 0; i < heights.length; i++) {
+    const size = heights[i] * scale, thickness = 20 * scale;
     const fromEnd = w % 2 === 1;
     const start = (vertical ? ARENA.x : ARENA.y) + (fromEnd ? length : -thickness);
     addHazard('hurdle', {
@@ -536,14 +537,14 @@ function spawnGravityRun(w) {
       y: vertical ? gy > 0 ? ARENA.y + ARENA.h - size : ARENA.y : start,
       w: vertical ? thickness : size, h: vertical ? size : thickness,
       vx: vertical ? (fromEnd ? -velocity : velocity) : 0,
-      vy: vertical ? 0 : (fromEnd ? -velocity : velocity), age: -1.15 - i * .62
+      vy: vertical ? 0 : (fromEnd ? -velocity : velocity), age: -1.05 - i * .74
     }, .55, length / velocity + .25);
   }
   playSFX('gravity');
-  return 3.5 + length / velocity;
+  return 4.95 + length / velocity;
 }
 function spawnCannons(w, lanes = false, count = lanes ? 2 : 3) {
-  const safe = (w + 1) % 3;
+  const safe = [1, 0, 2, 1, 2, 0][w % 6];
   for (let i = 0; i < count; i++) {
     const lane = (safe + i + 1) % 3;
     const fromRight = (w + i + (game.bossX > VIEW.w / 2 ? 1 : 0)) % 2;
@@ -552,8 +553,21 @@ function spawnCannons(w, lanes = false, count = lanes ? 2 : 3) {
     const angle = lanes ? (fromRight ? Math.PI : 0) : Math.atan2(game.y - y, game.x - x);
     addHazard('beam', { x, y, x2: x + Math.cos(angle) * ARENA.w * 2,
       y2: y + Math.sin(angle) * ARENA.w * 2, width: (lanes ? 30 : 40) * combatScale(),
-      angle, age: -i * (lanes ? 0 : .16) }, lanes ? .7 : .6, .34);
+      angle, age: -i * (lanes ? 0 : .16) }, lanes ? Math.max(.52, .18 + ARENA.h / (1300 * combatScale())) : .6, lanes ? .25 : .34);
   }
+}
+function spawnLaneRun(w) {
+  if (game.movement !== 'lanes') setMovement('lanes');
+  const beat = 1.02 - game.phase * .035;
+  for (let i = 0; i < 3; i++) {
+    const start = game.hazards.length;
+    spawnCannons(w * 3 + i, true);
+    for (let j = start; j < game.hazards.length; j++) game.hazards[j].age -= i * beat;
+  }
+  // Bidikan dikunci saat rangkaian dimulai: pemain masih dapat menghindar secara horizontal.
+  addHazard('slash', { x: game.x, y: ARENA.y, x2: game.x, y2: ARENA.y + ARENA.h,
+    width: 18 * combatScale(), age: -2 * beat }, .65, .25);
+  return 2 * beat + .95;
 }
 // CHAOS GENERATORS: pusaran berlawanan dan sabit melengkung memakai collision yang sama.
 function spawnChaos(w, scythes = false) {
@@ -624,7 +638,7 @@ function spawnAttackPattern() {
   if (game.pattern === 13) spawnPlatforms(w);
   if (game.pattern === 14) { spawnVolley(w); spawnSlash(w, .55); return 1.6; }
   if (game.pattern === 15) return spawnGravityRun(w + game.turn - 1);
-  if (game.pattern === 16) { if (game.movement !== 'lanes') setMovement('lanes'); spawnCannons(w, true); return 1.45; }
+  if (game.pattern === 16) return spawnLaneRun(w);
   if (game.pattern === 17) { spawnCannons(w); if (w % 2) spawnVolley(w, false, .4); return 1.65; }
   if (game.pattern === 18) { setMovement('free'); spawnCannons(w); if (w % 2) spawnRing(w); return 2; }
   if (game.pattern === 19) return spawnShieldArrows(w);
