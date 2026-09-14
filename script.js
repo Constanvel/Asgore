@@ -10,10 +10,10 @@ const ARENA = { x: 12, y: 140, w: 776, h: 260 };
 const MAX_HP = 40;
 const MAX_BOSS_HP = 180;
 const PHASES = [null,
-  { speed: 1.1, warning: 0.62, duration: 10, bpm: 156, name: 'I · OPENING TRIAL' },
-  { speed: 1.32, warning: 0.54, duration: 12, bpm: 172, name: 'II · ROYAL PRESSURE' },
-  { speed: 1.5, warning: 0.48, duration: 14, bpm: 188, name: 'III · BROKEN CROWN' },
-  { speed: 1.72, warning: 0.44, duration: 21, bpm: 208, name: 'IV · LAST GATE COLLAPSE' }
+  { speed: 1.25, warning: 0.58, duration: 13, bpm: 156, name: 'I · OPENING TRIAL' },
+  { speed: 1.5, warning: 0.5, duration: 15, bpm: 172, name: 'II · ROYAL PRESSURE' },
+  { speed: 1.7, warning: 0.46, duration: 17, bpm: 188, name: 'III · BROKEN CROWN' },
+  { speed: 1.9, warning: 0.42, duration: 27, bpm: 208, name: 'IV · LAST GATE COLLAPSE' }
 ];
 let touchTarget = null;
 let touchPointer = null;
@@ -31,9 +31,10 @@ function resetGame() {
     spawnTime: 0, wave: 0, pattern: 0, hazards: [], bullets: [], particles: [],
     bossX: VIEW.w / 2, bossY: bossCenterY(), bossTarget: 0.5,
     charge: 0, dash: 0, teleport: 0, shake: 0, hurtFlash: 0,
-    introIndex: 0, actCount: 0, paused: false, flash: 0, musicTime: 0, note: 0,
+    introIndex: 0, actCount: 0, paused: false, flash: 0,
     movement: 'free', vy: 0, driftX: 0, driftY: 0, grounded: false, jumpHeld: false,
-    ruleKnown: false, pendingTrap: false, attackDuration: 10, afterimages: [], attackSide: 0
+    ruleKnown: false, pendingTrap: false, attackDuration: 13, afterimages: [], attackSide: 0,
+    gx: 0, gy: 1, lane: 1, laneHeld: 0, bossMotion: 0, motionTime: 0
   };
   touchTarget = null;
   touchPointer = null;
@@ -41,6 +42,7 @@ function resetGame() {
   showDialogue('KING AVARON', introLines[0]);
   $('continue-button').innerHTML = 'ENTER <span aria-hidden="true">↵</span>';
   drawUI();
+  syncMusic(true);
 }
 
 const introLines = [
@@ -63,7 +65,6 @@ function updatePhase() {
   game.phase = phase;
   game.transition = 1.6;
   game.shake = 0.55;
-  game.musicTime = 0;
   game.bossTarget = phase === 4 ? 0.7 : 0.3;
   playSFX(phase === 4 ? 'final' : 'phase');
 }
@@ -95,7 +96,7 @@ function drawUI() {
 
 function openMenu() {
   game.state = 'menu';
-  game.movement = 'free'; game.vy = 0; game.driftX = 0; game.driftY = 0;
+  setMovement('free');
   touchTarget = null;
   touchPointer = null;
   game.menuIndex = 0;
@@ -168,7 +169,7 @@ function startAttack() {
   updatePhase();
   game.state = 'bossAttack';
   // Pola baru masuk giliran normal; ACT/ITEM memperpanjang rotasi hingga semua pola tampil.
-  const deck = game.phase === 1 ? [2, 0, 1, 8] : game.phase === 2 ? [1, 6, 3, 0, 2, 9] : [13, 12, 7, 12, 7, 13, 10];
+  const deck = game.phase === 1 ? [15, 17, 2, 16, 8] : game.phase === 2 ? [16, 17, 15, 6, 18, 7] : [15, 18, 17, 16, 13, 7];
   game.pattern = game.pendingTrap ? 14 : game.phase === 4 ? 5 : deck[game.turn % deck.length];
   if (game.pattern === 7 && !game.ruleKnown) {
     game.state = 'playerAction'; game.ruleKnown = true;
@@ -178,8 +179,7 @@ function startAttack() {
   game.state = 'bossAttack';
   game.attackDuration = game.pendingTrap ? 6 : PHASES[game.phase].duration;
   game.pendingTrap = false;
-  game.movement = game.pattern === 13 ? 'platform' : 'free';
-  game.vy = 0; game.driftX = 0; game.driftY = 0; game.jumpHeld = false;
+  setMovement(game.pattern === 13 ? 'platform' : 'free');
   game.afterimages = [];
   if (game.pattern === 5) playSFX('ultimate');
   game.turn++;
@@ -208,7 +208,11 @@ function startAttack() {
     'HUJAN KELOPAK — Bara melengkung lalu jatuh. Cari sela saat kipas mulai terbuka.',
     'TARIKAN MAHKOTA — Panah ungu menunjukkan gravitasi. Lawan tarikan sambil menghindari tembakan.',
     'PIJAKAN ABU — Atas / W / Spasi: lompat. Naiki platform sebelum lantai terbakar; pijakan berkedip sebelum hilang.',
-    'SUMPAH PALSU — Tinggalkan garis bidik, baca tebasan. Jebakan berakhir setelah enam detik.'
+    'SUMPAH PALSU — Tinggalkan garis bidik, baca tebasan. Jebakan berakhir setelah enam detik.',
+    'RODA HUKUM — Gravitasi berputar! Spasi / ↥: lompat menjauhi dinding. Lepas lebih cepat untuk lompat pendek.',
+    'BENANG TAKDIR — Atas/bawah: pindah jalur. Kiri/kanan: bergerak di jalur. Hindari dua jalur bertanda.',
+    'PENGADILAN SINAR — Meriam mengunci posisi saat muncul. Keluar dari garis bidik sebelum sinar menyala.',
+    'LANTAI KACA — Hati meluncur. Tekan arah berlawanan atau tahan Shift/SLOW untuk mengerem.'
   ];
   showDialogue(isFinalPhase() ? 'KING AVARON — SUMPAH TERAKHIR' : 'BERTAHAN', tips[game.pattern]);
   drawUI();
@@ -217,6 +221,7 @@ function startAttack() {
 
 function finishGame(result) {
   game.state = result === 'defeat' ? 'gameOver' : 'victory';
+  syncMusic();
   game.result = result;
   game.bullets = [];
   game.hazards = [];
@@ -338,8 +343,7 @@ function spawnRuleBullets(w) {
   playSFX('rule');
 }
 function spawnPlatforms(w) {
-  game.movement = 'platform';
-  document.body.dataset.movement = 'platform';
+  if (game.movement !== 'platform') setMovement('platform');
   for (let i = 0; i < 3; i++) addHazard('platform', {
     x: ARENA.x + ARENA.w * (.13 + i * .25), y: ARENA.y + ARENA.h * (i === 1 ? .73 : .58),
     w: ARENA.w * .24, h: 6
@@ -348,8 +352,51 @@ function spawnPlatforms(w) {
   if (w % 2) spawnVolley(w);
   playSFX('platform');
 }
+function setMovement(mode, gx = 0, gy = 1) {
+  game.movement = mode; game.gx = gx; game.gy = gy;
+  game.vy = 0; game.driftX = 0; game.driftY = 0;
+  game.grounded = false; game.jumpHeld = false; game.laneHeld = 0;
+  game.lane = clamp(Math.round((game.y - ARENA.y) / ARENA.h * 4 - 1), 0, 2);
+  document.body.dataset.movement = mode;
+}
+function spawnGravityRun(w) {
+  const [gx, gy] = [[0, 1], [1, 0], [0, -1], [-1, 0]][w % 4];
+  addHazard('shift', { gx, gy }, .85, .12);
+  const vertical = gy !== 0, scale = combatScale();
+  const length = vertical ? ARENA.w : ARENA.h;
+  const velocity = (game.phase >= 3 ? 330 : 275) * scale;
+  for (let i = 0; i < 3; i++) {
+    const size = (i % 2 ? 96 : 50) * scale, thickness = 22 * scale;
+    const fromEnd = w % 2 === 1;
+    const start = (vertical ? ARENA.x : ARENA.y) + (fromEnd ? length : -thickness);
+    addHazard('hurdle', {
+      x: vertical ? start : gx > 0 ? ARENA.x + ARENA.w - size : ARENA.x,
+      y: vertical ? gy > 0 ? ARENA.y + ARENA.h - size : ARENA.y : start,
+      w: vertical ? thickness : size, h: vertical ? size : thickness,
+      vx: vertical ? (fromEnd ? -velocity : velocity) : 0,
+      vy: vertical ? 0 : (fromEnd ? -velocity : velocity), age: -1.15 - i * .62
+    }, .55, length / velocity + .25);
+  }
+  playSFX('gravity');
+  return 3.5 + length / velocity;
+}
+function spawnCannons(w, lanes = false) {
+  const count = lanes ? 2 : Math.min(4, game.phase + 1);
+  const safe = (w + 1) % 3;
+  for (let i = 0; i < count; i++) {
+    const lane = (safe + i + 1) % 3;
+    const fromRight = (w + i + (game.attackSide > 0 ? 1 : 0)) % 2;
+    const x = ARENA.x + (fromRight ? ARENA.w - 14 : 14);
+    const y = ARENA.y + ARENA.h * (lanes ? (lane + 1) / 4 : [.12, .88, .35, .65][(w + i) % 4]);
+    const angle = lanes ? (fromRight ? Math.PI : 0) : Math.atan2(game.y - y, game.x - x);
+    addHazard('beam', { x, y, x2: x + Math.cos(angle) * ARENA.w * 2,
+      y2: y + Math.sin(angle) * ARENA.w * 2, width: (lanes ? 30 : 40) * combatScale(),
+      angle, age: -i * (lanes ? 0 : .18) }, lanes ? .85 : .78, .4);
+  }
+}
 // Posisi teleport menentukan sisi asal volley/wall dan titik spiral berikutnya.
 function prepareBossAttack(w) {
+  game.bossMotion = (w + game.turn) % 5; game.motionTime = 0;
   game.attackSide = [-1, 0, 1, 0][(w + game.turn) % 4];
   game.bossTarget = .5 + game.attackSide * .4;
   if (game.phase > 1 || w % 2) {
@@ -371,10 +418,11 @@ function spawnAttackPattern() {
   if (game.pattern === 4) spawnZones(w);
   if (game.pattern === 5) {
     // Urutan cepat dengan jeda transisi mode; aturan DIAM tidak dicampur tarikan gravitasi.
-    if (w % 4 === 0) { spawnSpiral(w, true); spawnWall(w, true); return 5.4; }
-    if (w % 4 === 1) { spawnFlame(w); for (let i = 0; i < 4; i++) spawnSlash(w + i, .45 + i * .55); return 3.2; }
-    if (w % 4 === 2) { spawnGravity(w + game.turn); spawnVolley(w); spawnVolley(w + 1, false, .7); return 4.2; }
-    spawnPlatforms(w); return 5.5;
+    if (w % 5 === 0) { setMovement('ice'); spawnSpiral(w, true); spawnWall(w, true); return 5.4; }
+    if (w % 5 === 1) { setMovement('free'); spawnFlame(w); spawnCannons(w); for (let i = 0; i < 4; i++) spawnSlash(w + i, .45 + i * .55); return 3.4; }
+    if (w % 5 === 2) { setMovement('free'); spawnGravity(w + game.turn); spawnVolley(w); return spawnGravityRun(game.turn); }
+    if (w % 5 === 3) { spawnPlatforms(w); spawnCannons(w); return 5.8; }
+    setMovement('lanes'); spawnCannons(w, true); return 1.5;
   }
   if (game.pattern === 6) {
     spawnWall(w + game.turn);
@@ -394,6 +442,10 @@ function spawnAttackPattern() {
   if (game.pattern === 12) { spawnGravity(w); spawnVolley(w, false, .25); }
   if (game.pattern === 13) spawnPlatforms(w);
   if (game.pattern === 14) { spawnVolley(w); spawnSlash(w, .55); return 1.6; }
+  if (game.pattern === 15) return spawnGravityRun(w + game.turn - 1);
+  if (game.pattern === 16) { if (game.movement !== 'lanes') setMovement('lanes'); spawnCannons(w, true); return 1.45; }
+  if (game.pattern === 17) { spawnCannons(w); if (w % 2) spawnVolley(w, false, .4); return 1.65; }
+  if (game.pattern === 18) { if (game.movement !== 'ice') setMovement('ice'); spawnCannons(w); if (w % 2) spawnRing(w); return 2; }
   return [1.05, 5.2, .95, .8 + game.phase * .6, 3.6, 3.2,
     1 + ARENA.w / (295 * PHASES[game.phase].speed * combatScale()),
     3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 5.8][game.pattern];
@@ -477,8 +529,8 @@ function checkCollision(object, previous = null) {
     if (h.age < h.warn || h.age >= h.life) return false;
     if (h.type === 'pulse') return h.rule === 'still' ? game.moving : !game.moving;
     if (h.type === 'ring') return Math.hypot(x - h.x, y - h.y) < 22;
-    if (h.type === 'pillar') return x + 4 > h.x && x - 4 < h.x + h.w && y + 4 > h.y && y - 4 < h.y + h.h;
-    if (h.type === 'slash') return distanceToLine(x, y, h) < h.width / 2 + 4;
+    if (h.type === 'pillar' || h.type === 'hurdle') return x + 4 > h.x && x - 4 < h.x + h.w && y + 4 > h.y && y - 4 < h.y + h.h;
+    if (h.type === 'slash' || h.type === 'beam') return distanceToLine(x, y, h) < h.width / 2 + 4;
     if (h.type === 'zones') return x - 4 < ARENA.x + h.safe * h.w || x + 4 > ARENA.x + (h.safe + 1) * h.w;
     if (h.type === 'wall') return !(h.age < h.safeUntil) && Math.abs(x - h.x) < h.width / 2 + 4 && (y - 4 < h.gapY || y + 4 > h.gapY + h.gap);
     return false;
@@ -489,7 +541,7 @@ function checkCollision(object, previous = null) {
 function hitPlayer() {
   if (game.invincible > 0 || game.state !== 'bossAttack') return;
   game.hp = Math.max(0, game.hp - 4);
-  game.invincible = .62; // Cukup untuk keluar dari satu cluster; hit serentak tidak menumpuk.
+  game.invincible = .32; // Cluster berbahaya lebih cepat, hit pada frame yang sama tetap dibatasi.
   game.hurtFlash = 0.28;
   game.shake = 0.2;
   burst(game.x, game.y);
@@ -499,13 +551,30 @@ function hitPlayer() {
 }
 
 function updateBoss(dt) {
+  game.motionTime += dt;
   const rhythm = Math.sin(game.time * PHASES[game.phase].bpm / 60 * Math.PI);
-  const target = VIEW.w / 2 + (game.bossTarget - 0.5) * ARENA.w * 0.55 + Math.sin(game.time * 0.8) * ARENA.w * 0.04;
-  game.bossX = clampBossX(game.bossX + (target - game.bossX) * Math.min(1, dt * (game.dash > 0 ? 15 : 1.8)));
-  game.bossY = bossCenterY() + (reducedMotion ? 0 : rhythm * 4 + Math.sin(game.time * 2.7) * 3);
+  const t = game.motionTime, active = game.state === 'bossAttack';
+  let offset = game.bossTarget - .5, lift = 0, chase = 2;
+  if (active) {
+    if (game.bossMotion === 0) { offset = Math.sin(t * 3) * .48; lift = Math.cos(t * 3) * 14; } // Orbit.
+    if (game.bossMotion === 1) { offset = (t < .5 ? -1 : 1) * (game.attackSide || 1) * .5; chase = t < .5 ? 2 : 18; } // Feint lalu dash.
+    if (game.bossMotion === 2) { offset = Math.sin(t * 4) * .5; lift = -Math.abs(Math.sin(t * 2)) * 30; chase = 12; } // Lompatan menyilang.
+    if (game.bossMotion === 3) {
+      offset = (Math.floor(t / .65) % 3 - 1) * .5;
+      if (Math.floor(t / .65) !== Math.floor((t - dt) / .65)) {
+        game.afterimages.push({ x: game.bossX, y: game.bossY, life: .45 });
+        game.bossX = clampBossX(VIEW.w / 2 + offset * ARENA.w * .55);
+        game.teleport = .26; playSFX('teleport');
+      }
+    }
+    if (game.bossMotion === 4) { offset = (game.x - ARENA.x) / ARENA.w - .5; lift = -Math.sin(Math.min(1, t) * Math.PI) * 25; chase = 7; } // Mengikuti hati sebelum menukik.
+  }
+  const target = VIEW.w / 2 + offset * ARENA.w * .55;
+  game.bossX = clampBossX(game.bossX + (target - game.bossX) * Math.min(1, dt * (game.dash > 0 ? 18 : chase)));
+  game.bossY = bossCenterY() + (reducedMotion ? 0 : (rhythm * 4 + lift) * bossScale());
   for (const ghost of game.afterimages) ghost.life -= dt;
   game.afterimages = game.afterimages.filter(ghost => ghost.life > 0);
-  if (!reducedMotion && game.phase === 4 && game.state === 'bossAttack' && Math.floor(game.time * 6) !== Math.floor((game.time - dt) * 6)) {
+  if (!reducedMotion && active && Math.floor(game.time * 8) !== Math.floor((game.time - dt) * 8)) {
     game.afterimages.push({ x: game.bossX + Math.sin(game.time * 9) * 45, y: game.bossY, life: .4 });
   }
 }
@@ -521,10 +590,36 @@ function updatePlayer(dt) {
     dx = touchTarget.x - game.x; dy = touchTarget.y - game.y;
     step = Math.min(step, Math.hypot(dx, dy));
   }
-  if (game.movement === 'platform') {
+  if (game.movement === 'gravity') {
+    const jump = keys.has(' ') || keys.has('jump') || (game.gy > 0 ? keys.has('w') || keys.has('arrowup') : game.gy < 0 ? keys.has('s') || keys.has('arrowdown') : game.gx > 0 ? keys.has('a') || keys.has('arrowleft') : keys.has('d') || keys.has('arrowright'));
+    if (jump && !game.jumpHeld && game.grounded) { game.vy = -610 * scale; game.grounded = false; playSFX('jump'); }
+    if (!jump && game.jumpHeld && game.vy < -230 * scale) game.vy = -230 * scale;
+    game.jumpHeld = jump;
+    game.vy = Math.min(850 * scale, game.vy + 1650 * scale * dt);
+    if (game.gy) game.x += Math.sign(dx) * Math.min(speed * dt, Math.abs(dx) > 1 ? Math.abs(dx) : Infinity);
+    else game.y += Math.sign(dy) * Math.min(speed * dt, Math.abs(dy) > 1 ? Math.abs(dy) : Infinity);
+    game.x += game.gx * game.vy * dt; game.y += game.gy * game.vy * dt;
+    game.grounded = game.gx > 0 ? game.x >= ARENA.x + ARENA.w - 9 : game.gx < 0 ? game.x <= ARENA.x + 9 : game.gy > 0 ? game.y >= ARENA.y + ARENA.h - 9 : game.y <= ARENA.y + 9;
+    if (game.grounded) game.vy = 0;
+  } else if (game.movement === 'lanes') {
+    game.x += Math.sign(dx) * Math.min(speed * dt, touchTarget && !keys.size ? Math.abs(dx) : Infinity);
+    if (touchTarget && !keys.size) game.lane = clamp(Math.round((touchTarget.y - ARENA.y) / ARENA.h * 4 - 1), 0, 2);
+    else if (dy && Math.sign(dy) !== game.laneHeld) game.lane = clamp(game.lane + Math.sign(dy), 0, 2);
+    game.laneHeld = Math.sign(dy);
+    const targetY = ARENA.y + ARENA.h * (game.lane + 1) / 4;
+    game.y += clamp(targetY - game.y, -650 * scale * dt, 650 * scale * dt);
+  } else if (game.movement === 'ice') {
+    const length = Math.hypot(dx, dy) || 1;
+    const brake = keys.has('shift');
+    const drag = Math.exp(-(brake ? 15 : 2.4) * dt);
+    game.driftX = clamp((game.driftX + dx / length * 1150 * scale * dt) * drag, -420 * scale, 420 * scale);
+    game.driftY = clamp((game.driftY + dy / length * 1150 * scale * dt) * drag, -420 * scale, 420 * scale);
+    game.x += game.driftX * dt; game.y += game.driftY * dt;
+  } else if (game.movement === 'platform') {
     // Gravitasi vertikal + lompatan satu kali per tekan. Atas/W juga bekerja pada D-pad.
     const jump = keys.has(' ') || keys.has('jump') || keys.has('w') || keys.has('arrowup');
     if (jump && !game.jumpHeld && game.grounded) { game.vy = -610 * scale; game.grounded = false; playSFX('jump'); }
+    if (!jump && game.jumpHeld && game.vy < -230 * scale) game.vy = -230 * scale;
     game.jumpHeld = jump;
     game.x += Math.sign(dx) * Math.min(speed * dt, touchTarget && !keys.size ? Math.abs(dx) : Infinity);
     game.vy += 1250 * scale * dt;
@@ -578,7 +673,6 @@ function update(dt) {
   updateBoss(dt);
   for (const p of game.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
   game.particles = game.particles.filter(p => p.life > 0);
-  playMusic(dt);
   if (game.state !== 'bossAttack') return;
   game.attackTime += dt;
   game.invincible = Math.max(0, game.invincible - dt);
@@ -593,6 +687,8 @@ function update(dt) {
     if (!h.fired) {
       h.fired = true;
       playSFX('attack');
+      if (h.type === 'shift') { setMovement('gravity', h.gx, h.gy); game.vy = 280 * combatScale(); game.shake = .15; }
+      if (h.type === 'beam') playSFX('heavy');
       if (['spear', 'ring', 'volley', 'bloom', 'ribbon'].includes(h.type)) releaseBullets(h);
       if (['pillar', 'slash', 'zones', 'wall'].includes(h.type)) {
         game.shake = 0.22; playSFX('heavy');
@@ -619,6 +715,7 @@ function update(dt) {
       if (h.gapY < low || h.gapY > high) h.gapSpeed *= -1;
       h.gapY = clamp(h.gapY, low, high);
     }
+    if (h.type === 'hurdle') { h.x += h.vx * dt; h.y += h.vy * dt; }
     if (h.type === 'platform' && !h.fading && h.life - h.age < .65) { h.fading = true; playSFX('platformOut'); }
     if (checkCollision(h)) hitPlayer();
     if (game.state !== 'bossAttack') return;
@@ -654,7 +751,8 @@ function pixelSprite(rows, x, y, scale, palette) {
 }
 const heartSprite = ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'];
 function drawHeart(x, y, broken = false) {
-  pixelSprite(heartSprite, x - 7, y - 6, 2, { r: COLORS.red });
+  const color = game.state === 'bossAttack' ? { gravity: '#559cff', platform: '#559cff', lanes: '#c18aff', ice: '#71f5dc' }[game.movement] : null;
+  pixelSprite(heartSprite, x - 7, y - 6, 2, { r: color || COLORS.red });
   if (broken) { rect(x, y - 6, 2, 6, '#080909'); rect(x - 2, y, 2, 5, '#080909'); }
 }
 const kingSprite = [
@@ -754,11 +852,26 @@ function drawHazard(h) {
   if (h.age < 0) return;
   const active = h.age >= h.warn && !(h.age < h.safeUntil);
   const pulse = Math.floor(h.age * 9) % 2 ? '#b39158' : '#706044';
-  if (h.type === 'gravity') {
+  if (h.type === 'beam') {
+    const color = active ? '#fff3da' : '#ffb52e';
+    ctx.setLineDash(active ? [] : [8, 8]);
+    line(h.x, h.y, h.x2, h.y2, active ? '#ff573a' : '#ffb52e22', h.width);
+    line(h.x, h.y, h.x2, h.y2, color, active ? h.width * .55 : 2);
+    ctx.setLineDash([]);
+    ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.angle);
+    rect(-12, -12, 23, 24, '#5a4332'); rect(-8, -8, 22, 16, color);
+    rect(1, -4, 15, 8, active ? '#ffffff' : '#190706');
+    ctx.restore();
+  } else if (h.type === 'hurdle') {
+    const color = active ? '#f4eee4' : '#a99f8b';
+    rect(h.x, h.y, h.w, h.h, active ? '#c8b99a' : '#c8b99a44');
+    if (h.vx) { rect(h.x - 3, h.y, h.w + 6, 5, color); rect(h.x - 3, h.y + h.h - 5, h.w + 6, 5, color); }
+    else { rect(h.x, h.y - 3, 5, h.h + 6, color); rect(h.x + h.w - 5, h.y - 3, 5, h.h + 6, color); }
+  } else if (h.type === 'gravity' || h.type === 'shift') {
     const direction = h.gx < 0 ? '←' : h.gx > 0 ? '→' : h.gy < 0 ? '↑' : '↓';
     ctx.textAlign = 'center'; ctx.font = 'bold 18px monospace'; ctx.fillStyle = '#c8a0ff';
     rect(ARENA.x + ARENA.w / 2 - 78, ARENA.y + 8, 156, 26, '#120c20');
-    ctx.fillText(`${active ? 'GRAV' : 'GRAV ?'} ${direction}`, ARENA.x + ARENA.w / 2, ARENA.y + 28);
+    ctx.fillText(`${h.type === 'shift' ? 'SLAM' : 'GRAV'} ${direction}`, ARENA.x + ARENA.w / 2, ARENA.y + 48);
     if (active) for (let i = 1; i < 5; i++) {
       ctx.globalAlpha = .3;
       ctx.fillText(direction, ARENA.x + ARENA.w * i / 5, ARENA.y + ARENA.h - 12);
@@ -917,6 +1030,14 @@ function draw() {
   ctx.save();
   // Clipping yang sama untuk SEMUA warning, spiral, peluru, dan hati.
   ctx.beginPath(); ctx.rect(ARENA.x, ARENA.y, ARENA.w, ARENA.h); ctx.clip();
+  if (game.movement === 'lanes') for (let i = 1; i <= 3; i++) {
+    line(ARENA.x, ARENA.y + ARENA.h * i / 4, ARENA.x + ARENA.w, ARENA.y + ARENA.h * i / 4, '#81539a88', 2);
+  }
+  if (game.movement === 'gravity') {
+    const x = game.gx > 0 ? ARENA.x + ARENA.w - 3 : ARENA.x;
+    const y = game.gy > 0 ? ARENA.y + ARENA.h - 3 : ARENA.y;
+    rect(x, y, game.gx ? 3 : ARENA.w, game.gy ? 3 : ARENA.h, '#559cff');
+  }
   for (const h of game.hazards) drawHazard(h);
   for (const b of game.bullets) {
     if (b.type === 'spear') {
@@ -938,9 +1059,14 @@ function draw() {
       if (b.rule === 'move') { line(b.x - 2, b.y - 3, b.x + 2, b.y, '#40200e', 2); line(b.x + 2, b.y, b.x - 2, b.y + 3, '#40200e', 2); }
     }
   }
-  if (game.movement === 'platform' && game.state === 'bossAttack') {
-    ctx.fillStyle = '#d3bbff'; ctx.textAlign = 'center'; ctx.font = '12px monospace';
-    ctx.fillText('↑ / W / SPASI: LOMPAT', ARENA.x + ARENA.w / 2, ARENA.y + 22);
+  if (game.state === 'bossAttack') {
+    const direction = game.gx < 0 ? '←' : game.gx > 0 ? '→' : game.gy < 0 ? '↑' : '↓';
+    const hint = { platform: '↑ / W / SPASI: LOMPAT', gravity: `GRAV ${direction} | SPASI / ↥: LOMPAT`,
+      lanes: '↑ ↓: GANTI JALUR | ← →: GERAK', ice: 'ES: MELUNCUR | SHIFT / SLOW: REM' }[game.movement];
+    if (hint) {
+      ctx.fillStyle = '#d3bbff'; ctx.textAlign = 'center'; ctx.font = '11px monospace';
+      ctx.fillText(hint, ARENA.x + ARENA.w / 2, ARENA.y + 22);
+    }
   }
   if (game.state === 'gameOver' || game.state === 'victory') {
     const center = ARENA.y + ARENA.h / 2;
@@ -986,18 +1112,32 @@ function draw() {
   }
 }
 
-// 6. AUDIO ORIGINAL. Melodi pendek disintesis memakai Web Audio, tanpa lagu luar.
+// 6. AUDIO. MP3 dari pengguna untuk musik, Web Audio untuk efek serangan.
+const music = $('battle-music');
+music.volume = .48;
+let musicRequest = false;
 let audio = null;
 let soundEnabled = true;
 let lastAttackSound = -1;
+function syncMusic(restart = false) {
+  if (restart) music.currentTime = 0;
+  if (!soundEnabled || game?.paused || ['victory', 'gameOver'].includes(game?.state)) { music.pause(); return; }
+  if (music.paused && !musicRequest) {
+    musicRequest = true;
+    music.play().then(() => {
+      if (!soundEnabled || game?.paused || ['victory', 'gameOver'].includes(game?.state)) music.pause();
+    }).catch(() => {}).finally(() => { musicRequest = false; });
+  }
+}
+music.addEventListener('error', () => { $('sound-button').title = 'Musik gagal dimuat. Periksa assets/megalovania.mp3.'; });
 // unlockAudio(): coba autoplay; ulangi dalam gesture jika browser masih menangguhkan audio.
 // Listener tetap terpasang untuk pemulihan interupsi audio mobile, tanpa menggandakan context.
 function unlockAudio() {
   if (!soundEnabled || game?.paused) return;
+  syncMusic();
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   if (!AudioEngine) {
-    $('sound-button').disabled = true;
-    $('sound-button').title = 'Web Audio tidak didukung browser ini';
+    $('sound-button').title = 'Efek suara tidak tersedia; musik MP3 tetap dapat diputar';
     return;
   }
   try {
@@ -1005,7 +1145,6 @@ function unlockAudio() {
     if (audio.state !== 'running') {
       audio.resume().then(() => {
         if (!soundEnabled || game?.paused) return audio.suspend();
-        if (game) game.musicTime = 0;
       }).catch(() => {});
     }
   } catch {
@@ -1030,12 +1169,6 @@ function tone(frequency, duration, type = 'triangle', volume = 0.025, delay = 0,
   oscillator.start(start); oscillator.stop(start + duration + 0.02);
   oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
 }
-// AUDIO SYSTEM: "Crownfall Circuit", komposisi original 64 langkah dalam minor.
-const SCORE = [0, 3, 7, 10, 7, 3, 12, 7, 10, 15, 12, 7, 3, 7, 2, -1,
-  5, 8, 12, 15, 12, 8, 17, 12, 15, 19, 17, 12, 8, 5, 7, 10,
-  3, 7, 10, 14, 10, 7, 15, 10, 14, 19, 17, 14, 10, 7, 3, -1,
-  2, 5, 8, 11, 14, 11, 8, 5, 2, 14, 11, 8, 7, 5, 3, 2];
-const hz = semitone => 110 * Math.pow(2, semitone / 12);
 function playSFX(name) {
   if (name === 'attack') {
     if (!audio || audio.currentTime - lastAttackSound < 0.06) return;
@@ -1067,24 +1200,6 @@ function playSFX(name) {
   };
   for (const note of sounds[name] || []) tone(...note);
 }
-function playMusic(dt) {
-  if (!soundEnabled || !audio || audio.state !== 'running' || ['victory', 'gameOver'].includes(game.state)) return;
-  game.musicTime -= dt;
-  if (game.musicTime > 0) return;
-  const index = game.note++ % SCORE.length;
-  const step = 60 / PHASES[game.phase].bpm / 4;
-  const root = [0, 5, 3, 2][Math.floor(index / 16)];
-  if (SCORE[index] >= 0) tone(hz(SCORE[index] + 12), step * 0.85, 'square', .013);
-  if (index % 2 === 0) tone(hz(root + (index % 4 === 2 ? 7 : 0)), step * 1.8, 'triangle', .04);
-  if (index % 4 === 0) tone(120, .13, 'sine', .06, 0, 32);
-  if (index % 8 === 4) tone(190, .08, 'sawtooth', .019, 0, 65);
-  if (index % 2 === 1) tone(5400, .025, 'square', .006, 0, 2700);
-  // Dynamic music: fase III menambah bass/drum; fase IV menambah melodi tinggi di sela ketukan.
-  if (game.phase >= 3 && index % 2) tone(hz(root - 12 + (index % 4 === 1 ? 0 : 7)), step * .8, 'sawtooth', .013);
-  if (game.phase >= 3 && index % 4 === 2) tone(145, .08, 'sine', .03, 0, 32);
-  if (game.phase === 4 && SCORE[index] >= 0) tone(hz(SCORE[index] + 24), step * .48, 'triangle', .012, step * .5);
-  game.musicTime += step;
-}
 $('sound-button').addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   $('sound-button').textContent = `♪ ${soundEnabled ? 'ON' : 'OFF'}`;
@@ -1092,12 +1207,14 @@ $('sound-button').addEventListener('click', () => {
   $('sound-button').setAttribute('aria-label', soundEnabled ? 'Matikan suara' : 'Aktifkan suara');
   if (soundEnabled) unlockAudio();
   else if (audio) audio.suspend().catch(() => {});
+  syncMusic();
 });
 
 // 7. INPUT DAN GAME LOOP. Jeda otomatis mencegah pemain terluka saat pindah tab.
 function setPaused(paused) {
   if (!['bossAttack', 'menu', 'playerAction'].includes(game.state)) return;
   game.paused = paused;
+  syncMusic();
   touchTarget = null;
   keys.clear();
   if (audio && soundEnabled) {

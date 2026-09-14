@@ -11,6 +11,8 @@ const element = (dataset = {}) => ({ dataset, style: {}, classList: { toggle: no
   setAttribute: noop, addEventListener: noop, focus: noop,
   getBoundingClientRect: () => ({ width: 800, height: 140, left: 0, top: 0 }) });
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
+Object.assign(elements['battle-music'], { paused: true, currentTime: 0,
+  play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } });
 const buttons = ['fight', 'act', 'item', 'mercy'].map(action => element({ action }));
 elements.battle.getContext = () => paint;
 elements.battle.getBoundingClientRect = () => ({ width: 800, height: 800, left: 0, top: 0 });
@@ -124,4 +126,45 @@ assert.equal(run('game.ruleKnown'), true);
 elements.battle.getBoundingClientRect = () => ({ width: 390, height: 844, left: 0, top: 0 });
 run('resizeGame(); game.phase = 4; game.turn = 2; prepareBossAttack(0); updateBoss(.1)');
 assert.ok(run('game.bossX + 100 * bossScale() < VIEW.w'), 'tombak boss tetap terlihat di layar ponsel');
-console.log('PASS: startup, audio fallback, movement, warning, invulnerability, phases, patterns, items, endings, restart');
+// Mode baru diuji lewat update/collision yang sama dengan game, tanpa mematikan damage.
+run('resetGame(); openMenu(); startAttack(); game.spawnTime = 99; game.hazards = []; game.bullets = []');
+for (const [gx, gy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+  run(`setMovement('gravity', ${gx}, ${gy}); game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2; keys.clear()`);
+  run('for (let i = 0; i < 200; i++) updatePlayer(1 / 120)');
+  assert.equal(run('game.grounded'), true, 'gravitasi mendarat pada sisi yang benar');
+  const before = run('[game.x, game.y]');
+  run('keys.add(" "); updatePlayer(.03)');
+  assert.ok((run('game.x') - before[0]) * gx + (run('game.y') - before[1]) * gy < 0, 'wall-jump menjauhi gravitasi');
+  run('keys.clear(); updatePlayer(.01)');
+  assert.ok(run('game.vy') >= run('-230 * combatScale()'), 'melepas tombol memendekkan lompatan');
+}
+run('setMovement("lanes"); game.lane = 1; keys.clear(); keys.add("arrowup"); updatePlayer(.1); updatePlayer(.1)');
+assert.equal(run('game.lane'), 0, 'satu tekan pindah satu jalur');
+run('keys.clear(); updatePlayer(.1); keys.add("arrowdown"); updatePlayer(.1)');
+assert.equal(run('game.lane'), 1);
+run('setMovement("ice"); game.x = ARENA.x + ARENA.w / 2; keys.clear(); keys.add("d"); updatePlayer(.1); keys.clear(); updatePlayer(.05)');
+const drift = run('game.driftX');
+assert.ok(drift > 0, 'momentum tetap ada setelah arah dilepas');
+run('keys.add("shift"); updatePlayer(.1)');
+assert.ok(run('game.driftX') < drift / 3, 'SLOW mengerem momentum');
+run('keys.clear(); game.hazards = []; spawnCannons(0, true)');
+assert.equal(run('game.hazards.length'), 2);
+run('game.x = ARENA.x + ARENA.w / 2; game.y = game.hazards[0].y');
+assert.equal(run('checkCollision(game.hazards[0])'), false, 'bidikan meriam tidak melukai');
+run('game.hazards.forEach(h => h.age = h.warn)');
+assert.equal(run('checkCollision(game.hazards[0])'), true, 'sinar aktif melukai');
+run('game.y = ARENA.y + ARENA.h / 2');
+assert.equal(run('game.hazards.some(h => checkCollision(h))'), false, 'ada satu jalur bebas sinar');
+run('game.hazards = []; spawnGravityRun(2); update(.86)');
+assert.equal(run('game.movement'), 'gravity');
+assert.equal(run('game.gy'), -1, 'telegraph shift mengubah gravitasi ke langit-langit');
+assert.equal(run('game.hazards.filter(h => h.type === "hurdle").length'), 3);
+const motions = new Set();
+for (let i = 0; i < 5; i++) { run(`prepareBossAttack(${i})`); motions.add(run('game.bossMotion')); }
+assert.equal(motions.size, 5, 'lima variasi gerakan boss');
+assert.ok(fs.statSync(path.join(root, 'assets/megalovania.mp3')).size > 100000);
+run('setPaused(true)');
+assert.equal(elements['battle-music'].paused, true, 'musik berhenti ketika pause');
+run('music.currentTime = 42; resetGame()');
+assert.equal(elements['battle-music'].currentTime, 0, 'restart mengulang lagu dari awal');
+console.log('PASS: combat, four-way wall-jump, lanes, ice braking, cannons, boss motion, MP3 lifecycle, endings');
