@@ -9,7 +9,7 @@ button:disabled { cursor: default; }
 button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 [hidden] { display: none !important; }
 .game-shell { position: relative; width: 100%; height: 100vh; height: 100dvh; isolation: isolate; }
-.masthead { position: absolute; z-index: 4; top: env(safe-area-inset-top, 0px); right: 16px; height: 36px; display: flex; align-items: center; justify-content: flex-end; }
+.masthead { position: absolute; z-index: 8; top: env(safe-area-inset-top, 0px); right: 16px; height: 36px; display: flex; align-items: center; justify-content: flex-end; }
 .utilities { display: flex; gap: 6px; }
 .utility { padding: 5px 9px; border: 1px solid #443c2c; color: var(--muted); background: #000; font-size: 9px; letter-spacing: 1px; }
 .utility:hover { border-color: var(--gold); color: var(--gold); }
@@ -57,9 +57,32 @@ body[data-phase='4'] .health-track { background: #7a1515; }
 .pause-overlay { position: absolute; z-index: 6; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000000ec; padding: 24px; text-align: center; }
 .pause-overlay strong { font: 28px var(--pixel); color: var(--gold); }
 .pause-overlay p { margin: 10px 0 16px; color: var(--muted); font-size: 11px; }
+#pause-help { max-width: 440px; line-height: 1.5; }
 .pause-overlay button { border: 3px solid var(--gold); padding: 10px 20px; background: #000; color: var(--gold); font: 12px var(--pixel); }
 .pause-overlay button:hover { border-color: #fff; color: #fff; }
 .touch-controls { display: none; }
+.scene-screen { position: absolute; z-index: 5; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 28px; text-align: center; background: #000; overflow-y: auto; }
+.scene-screen h1 { margin: 0; font: clamp(20px, 4vw, 40px) var(--pixel); color: var(--gold); line-height: 1.6; }
+.scene-screen p { margin: 0; max-width: 420px; line-height: 1.6; }
+.scene-eyebrow { color: var(--muted); letter-spacing: 4px; font-size: 10px; }
+.scene-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 14px; }
+.scene-actions button, #strike-button { background: #000; color: var(--gold); border: 2px solid var(--gold); min-height: 44px; padding: 10px 14px; }
+.scene-actions button:hover, #strike-button:hover { color: #fff; border-color: #fff; }
+body[data-state='endingScreen'] .scene-screen { background: #000e; }
+body[data-state='title'] .battle-hud, body[data-state='endingScreen'] .battle-hud,
+body[data-state='title'] .boss-status, body[data-state='endingScreen'] .boss-status { visibility: hidden; }
+#attack-meter { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.timing-track { position: relative; height: 26px; flex: 1; background: #15120e; border: 2px solid #fff; overflow: hidden; }
+.timing-target { position: absolute; inset: 0 34%; background: #80581b; }
+.timing-perfect { position: absolute; inset: 0 45.5%; background: #ffcc47; }
+#attack-marker { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #fff; transform: translateX(-50%); }
+#strike-button { font-size: 9px; padding: 4px 8px; }
+body[data-state='attackMinigame'] .dialogue-star { display: none; }
+body[data-state='tutorialMove'] .touch-controls, body[data-state='tutorialDodge'] .touch-controls { top: calc(var(--hud-top) + 98px); }
+body[data-state^='tutorial'] .actions { visibility: hidden; }
+@media (pointer: coarse) {
+  body[data-state='tutorialMove'] .touch-controls, body[data-state='tutorialDodge'] .touch-controls { display: flex; position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); align-items: center; gap: 8px; }
+}
 .jump-button { display: none; }
 body[data-movement='shield'] .slow-button { display: none; }
 body[data-movement='platform'] .jump-button, body[data-movement='gravity'] .jump-button { display: block; }
@@ -111,6 +134,7 @@ body[data-movement='platform'] .jump-button, body[data-movement='gravity'] .jump
   #item-count { margin-left: 4px; }
 }
 @media (max-height: 540px) {
+  body[data-state='tutorialMove'] .touch-controls, body[data-state='tutorialDodge'] .touch-controls { top: calc(var(--hud-top) + 65px); }
   .masthead { height: 26px; }
   .utility { padding: 3px 6px; }
   .boss-status { gap: 3px; }

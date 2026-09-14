@@ -9,12 +9,11 @@
   <script src="script.js" defer></script>
 </head>
 <body>
-  <audio id="battle-music" src="assets/megalovania.mp3" preload="auto" loop></audio>
   <main class="game-shell">
     <header class="masthead">
       <div class="utilities">
         <button id="fullscreen-button" class="utility" type="button" aria-label="Layar Penuh">LAYAR PENUH</button>
-        <button id="sound-button" class="utility" type="button" aria-pressed="true" aria-label="Matikan suara" title="MEGALOVANIA — Toby Fox">♪ ON</button>
+        <button id="sound-button" class="utility" type="button" aria-pressed="true" aria-label="Matikan suara" title="The Last Gate — musik original sintetis">♪ ON</button>
       </div>
     </header>
 
@@ -32,9 +31,21 @@
 
       <div class="stage-wrap">
         <canvas id="battle" width="800" height="600" tabindex="0" aria-label="Battle box retro. Gerakkan hati merah dengan WASD atau tombol panah.">Canvas tidak didukung.</canvas>
+        <section id="scene-screen" class="scene-screen" aria-labelledby="scene-title">
+          <p class="scene-eyebrow">KING AVARON</p>
+          <h1 id="scene-title">THE LAST GATE</h1>
+          <p id="scene-description">Satu gerbang. Satu sumpah yang belum padam.</p>
+          <div class="scene-actions">
+            <button id="tutorial-button" type="button">START TUTORIAL</button>
+            <button id="skip-button" type="button">SKIP TUTORIAL</button>
+            <button id="replay-button" type="button" hidden>PLAY AGAIN</button>
+            <button id="title-button" type="button" hidden>RETURN TO TITLE</button>
+          </div>
+        </section>
         <div id="pause-overlay" class="pause-overlay" hidden>
           <strong>PAUSED</strong>
-          <p>Tarik napas. Pertarungan masih menunggumu.</p>
+          <p>WASD / panah: gerak · Shift: fokus · Z / Enter: pilih.<br>Perisai: hadapkan ke panah. Gravitasi: Spasi untuk lompat.<br>Biru: diam. Oranye: bergerak. ITEM: heal. Esc: lanjut.</p>
+          <p id="pause-help"></p>
           <button id="resume-button" type="button">LANJUTKAN</button>
         </div>
       </div>
@@ -58,6 +69,10 @@
           <div class="dialogue-content">
             <p id="speaker">KING AVARON</p>
             <p id="dialogue" aria-live="polite">“Di balik gerbang ini, tak ada takhta. Hanya dunia yang belum mengenal lukanya.”</p>
+            <div id="attack-meter" hidden>
+              <div class="timing-track" aria-hidden="true"><span class="timing-target"></span><span class="timing-perfect"></span><span id="attack-marker"></span></div>
+              <button id="strike-button" type="button">STRIKE · Z / ENTER</button>
+            </div>
           </div>
           <button id="continue-button" class="continue-button" type="button" aria-label="Lanjutkan dialog">ENTER <span aria-hidden="true">↵</span></button>
         </div>

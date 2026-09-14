@@ -11,8 +11,6 @@ const element = (dataset = {}) => ({ dataset, style: {}, classList: { toggle: no
   setAttribute: noop, addEventListener: noop, focus: noop,
   getBoundingClientRect: () => ({ width: 800, height: 140, left: 0, top: 0 }) });
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
-Object.assign(elements['battle-music'], { paused: true, currentTime: 0,
-  play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } });
 const buttons = ['fight', 'act', 'item', 'mercy'].map(action => element({ action }));
 elements.battle.getContext = () => paint;
 elements.battle.getBoundingClientRect = () => ({ width: 800, height: 800, left: 0, top: 0 });
@@ -24,11 +22,22 @@ const scope = vm.createContext({ document, window: { matchMedia: () => ({ matche
   addEventListener: noop }, ResizeObserver: class { observe() {} }, requestAnimationFrame: noop, console });
 const run = code => vm.runInContext(code, scope);
 assert.doesNotThrow(() => run(fs.readFileSync(path.join(root, 'script.js'), 'utf8')), 'game harus bisa dimuat dengan DOM asli');
-assert.equal(run('game.state'), 'intro');
+assert.equal(run('game.state'), 'title');
+assert.ok(!html.includes('<audio'), 'tidak memuat audio eksternal');
 assert.equal(run('soundEnabled'), true, 'audio default ON');
 run('unlockAudio()'); // Browser tanpa AudioContext juga tidak boleh crash.
 run('openMenu(); chooseAction("fight")');
-assert.equal(run('game.bossHp'), 156);
+assert.equal(run('game.bossHp'), 180, 'FIGHT tidak langsung melukai boss');
+assert.equal(run('game.state'), 'attackMinigame');
+for (const [timing, result, damage] of [[.75, 'PERFECT', 18], [.9, 'GOOD', 12], [1.12, 'BAD', 6], [1.4, 'MISS', 0]]) {
+  run(`openMenu(); game.bossHp = 180; chooseAction('fight'); game.timing = ${timing}; resolveStrike(); resolveStrike()`);
+  assert.equal(run('game.timingResult'), result);
+  assert.equal(run('game.bossHp'), 180 - damage, 'hasil hanya dihitung sekali');
+}
+run('openMenu(); chooseAction("fight"); update(1.6)');
+assert.equal(run('game.timingResult'), 'MISS', 'timeout tanpa input');
+run('update(.86)');
+assert.equal(run('game.state'), 'bossAttack');
 run('startAttack(); game.invincible = 0; hitPlayer(); hitPlayer()');
 assert.equal(run('game.hp'), 36, 'dua hit bersamaan hanya memberi satu damage');
 run('keys.add("arrowleft"); keys.add("arrowup"); updatePlayer(99)');
@@ -58,7 +67,8 @@ assert.ok(run('game.hazards[0].gapSpeed !== 0'), 'varian wall dengan celah berge
 for (let combo = 0; combo < 4; combo++) {
   run(`game.pattern = 5; game.wave = ${combo}; game.hazards = []; spawnAttackPattern()`);
   const types = run('[...new Set(game.hazards.map(h => h.type))].sort().join(",")');
-  for (const type of [['spiral', 'wall'], ['pillar', 'slash'], ['gravity', 'volley'], ['platform', 'pillar']][combo]) assert.ok(types.includes(type));
+  for (const type of [['spiral', 'wall'], ['pillar', 'spear'], ['slash'], ['guardArrow']][combo]) assert.ok(types.includes(type));
+  assert.ok(types.split(',').length <= 2, 'combo maksimal dua keluarga');
 }
 run('game.hazards = []; spawnZones(0)');
 assert.ok(run('game.hazards[0].warn - game.hazards[0].reveal > ARENA.w / 3 / (310 * combatScale())'));
@@ -67,8 +77,13 @@ assert.equal(run('game.hp'), 30);
 assert.equal(run('game.items'), 1);
 run('chooseAction("item")');
 assert.equal(run('game.items'), 1, 'double click tidak memakai item lagi');
-run('openMenu(); game.bossHp = 24; chooseAction("fight")');
-assert.equal(run('game.state'), 'victory');
+run('openMenu(); game.bossHp = 18; chooseAction("fight"); game.timing = .75; resolveStrike()');
+assert.equal(run('game.state'), 'bossDefeated');
+assert.equal(run('game.bullets.length + game.hazards.length'), 0);
+run('update(2.5)');
+assert.equal(run('game.state'), 'outroDialog');
+run('continueGame(); continueGame(); continueGame(); continueGame()');
+assert.equal(run('game.state'), 'endingScreen');
 run('resetGame(); openMenu(); game.bossHp = 36; chooseAction("mercy")');
 assert.equal(run('game.result'), 'mercy');
 run('resetGame(); openMenu(); startAttack(); game.hp = 4; game.invincible = 0; hitPlayer()');
@@ -106,7 +121,7 @@ run('resetGame(); openMenu(); chooseAction("mercy"); continueGame()');
 assert.equal(run('game.pattern'), 14);
 assert.equal(run('game.attackDuration'), 6);
 run('game.hazards = []; game.bullets = []; game.attackTime = 5.99; update(.02)');
-assert.equal(run('game.state'), 'menu');
+assert.equal(run('game.state'), 'battleMenu');
 run('startAttack(); game.hazards = []; keys.clear(); touchTarget = null; spawnGravity(0); game.hazards[0].age = game.hazards[0].warn; game.x = ARENA.x + ARENA.w / 2');
 const gravityX = run('game.x');
 run('updatePlayer(.1)');
@@ -127,7 +142,7 @@ elements.battle.getBoundingClientRect = () => ({ width: 390, height: 844, left: 
 run('resizeGame(); game.phase = 4; game.turn = 2; prepareBossAttack(0); updateBoss(.1)');
 assert.ok(run('game.bossX + 100 * bossScale() < VIEW.w'), 'tombak boss tetap terlihat di layar ponsel');
 // Mode baru diuji lewat update/collision yang sama dengan game, tanpa mematikan damage.
-run('resetGame(); openMenu(); startAttack(); game.spawnTime = 99; game.hazards = []; game.bullets = []');
+run('resetGame(); openMenu(); startAttack(); if (game.state === "phaseTransition") update(2); game.spawnTime = 99; game.hazards = []; game.bullets = []');
 for (const [gx, gy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
   run(`setMovement('gravity', ${gx}, ${gy}); game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2; keys.clear()`);
   run('for (let i = 0; i < 200; i++) updatePlayer(1 / 120)');
@@ -163,23 +178,21 @@ assert.equal(run('game.hazards.filter(h => h.type === "hurdle").length'), 3);
 const motions = new Set();
 for (let i = 0; i < 5; i++) { run(`prepareBossAttack(${i})`); motions.add(run('game.bossMotion')); }
 assert.equal(motions.size, 5, 'lima variasi gerakan boss');
-assert.ok(fs.statSync(path.join(root, 'assets/megalovania.mp3')).size > 100000);
 run('setPaused(true)');
-assert.equal(elements['battle-music'].paused, true, 'musik berhenti ketika pause');
-run('music.currentTime = 42; resetGame()');
-assert.equal(elements['battle-music'].currentTime, 0, 'restart mengulang lagu dari awal');
-for (const state of ['intro', 'menu', 'playerAction', 'bossAttack', 'victory', 'gameOver']) {
-  run(`game.state = '${state}'; game.paused = false; pageActive = true; music.paused = false; leavePage()`);
-  assert.equal(elements['battle-music'].paused, true, `musik berhenti dari ${state}`);
+assert.equal(run('audioAllowed()'), false);
+run('musicBeat = 42; resetGame()');
+assert.equal(run('musicBeat'), 0, 'restart mengulang motif');
+for (const state of ['title', 'tutorialIntro', 'tutorialMove', 'tutorialDodge', 'tutorialComplete', 'battleMenu', 'attackMinigame', 'phaseTransition', 'playerAction', 'bossAttack', 'bossDefeated', 'outroDialog', 'endingScreen', 'gameOver']) {
+  run(`game.state = '${state}'; game.paused = false; pageActive = true; leavePage()`);
   assert.equal(run('audioAllowed()'), false);
   run('unlockAudio(); syncMusic()');
-  assert.equal(elements['battle-music'].paused, true, 'audio tidak hidup lagi di halaman tidak aktif');
+  assert.equal(run('activeSounds.size'), 0, 'audio tidak hidup lagi di halaman tidak aktif');
 }
 run('pageActive = true; resetGame(); openMenu(); startAttack(); game.phase = 3; game.movement = "free"; game.hazards = []; game.motionTime = 1.69; updateBoss(.02)');
-assert.ok(run('game.hazards.some(h => h.type === "beam" && h.age < h.warn)'), 'gerakan boss menambah meriam dengan warning');
-run('resetGame(); openMenu(); game.bossHp = 60; startAttack(); game.spawnTime = 99; game.attackTime = 4.99; update(.02)');
+assert.equal(run('game.hazards.length'), 0, 'gerakan boss tidak menambah serangan di luar ritme');
+run('resetGame(); openMenu(); game.bossHp = 60; startAttack(); if (game.state === "phaseTransition") update(2); game.spawnTime = 99; game.attackTime = 4.99; update(.02)');
 assert.equal(run('game.hazards.some(h => h.type === "heal")'), false, 'heal hanya muncul di fase terakhir');
-run('openMenu(); game.bossHp = 40; startAttack(); game.hp = 20; game.spawnTime = 99; game.attackTime = 4.99; update(.02)');
+run('openMenu(); game.bossHp = 40; startAttack(); if (game.state === "phaseTransition") update(2); game.hp = 20; game.spawnTime = 99; game.attackTime = 4.99; update(.02)');
 assert.equal(run('game.hazards.filter(h => h.type === "heal").length'), 1, 'pickup muncul pada detik kelima');
 run('game.x = game.hazards[0].x; game.y = game.hazards[0].y; update(.02)');
 assert.equal(run('game.hp'), 20, 'heal belum bisa diambil selama tanda muncul');
@@ -201,7 +214,7 @@ run('game.attackTime = 11.99; update(.02)');
 assert.equal(run('game.hazards.filter(h => h.type === "heal").length'), 1, 'pickup berikutnya muncul tujuh detik kemudian');
 run('openMenu()');
 assert.equal(run('game.hazards.length'), 0, 'pickup dibersihkan saat giliran selesai');
-run('resetGame(); openMenu(); game.bossHp = 132; game.turn = 1; startAttack(); game.spawnTime = 99');
+run('resetGame(); openMenu(); game.bossHp = 132; game.turn = 1; startAttack(); if (game.state === "phaseTransition") update(2); game.spawnTime = 99');
 assert.equal(run('game.pattern'), 19, 'mode perisai masuk giliran normal');
 assert.equal(run('game.movement'), 'shield');
 run('keys.add("d"); faceShield("d"); updatePlayer(.1); keys.clear(); updatePlayer(.1)');
@@ -239,4 +252,33 @@ run('faceShield("w"); touchTarget = { x: game.x + 81, y: game.y - 80 }; updatePl
 assert.equal(run('game.shield'), 0, 'geser dekat diagonal tidak membuat arah bergetar');
 run('touchTarget.x = game.x + 110; updatePlayer(.01)');
 assert.equal(run('game.shield'), 1, 'geser melewati batas diagonal mengganti arah');
-console.log('PASS: combat, shield smoothing and immediate input, touch hysteresis, audio, healing and cleanup');
+// Tutorial harus interaktif, dapat diulang, dan tidak menghabiskan HP pemain.
+run('resetGame(); startTutorial(); continueGame(); continueGame()');
+assert.equal(run('game.state'), 'tutorialMove');
+run('Object.assign(game, tutorialTarget()); update(.01)');
+assert.equal(run('game.state'), 'tutorialDodge');
+run('game.invincible = 0; game.safeTime = 4; hitPlayer()');
+assert.equal(run('game.hp'), 40);
+assert.equal(run('game.safeTime'), 0);
+run('game.safeTime = 5.99; update(.02)');
+assert.equal(run('game.state'), 'tutorialComplete');
+run('continueGame()');
+assert.equal(run('game.state'), 'battleMenu');
+run('game.bossHp = 144; chooseAction("fight"); game.timing = .75; resolveStrike(); update(.86)');
+assert.equal(run('game.state'), 'phaseTransition');
+assert.equal(run('game.hazards.length'), 0, 'transisi fase memberi jeda bebas damage');
+run('update(1.7)');
+assert.equal(run('game.state'), 'bossAttack');
+assert.equal(run('game.phase'), 2);
+assert.equal(run('game.actionSnapshot'), null, 'aksi yang sudah selesai tidak dapat di-undo melalui dialog aturan');
+run('openMenu(); chooseAction("fight"); update(.4); setPaused(true)');
+const frozenTiming = run('game.timing');
+run('update(2)');
+assert.equal(run('game.timing'), frozenTiming, 'pause tidak menggerakkan marker');
+run('setPaused(false); game.timing = .75; resolveStrike()');
+assert.equal(run('game.timingResult'), 'PERFECT');
+for (let phase = 1; phase <= 4; phase++) {
+  run(`game.phase = ${phase}; game.hazards = []; spawnSlash(0)`);
+  assert.ok(run('game.hazards.every(h => h.warn >= .5)'), 'semua slash mendapat warning minimal setengah detik');
+}
+console.log('PASS: tutorial, timing tiers/timeout/pause, phases, outro, patterns, movement, audio and healing');
