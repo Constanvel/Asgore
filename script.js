@@ -34,7 +34,7 @@ function resetGame() {
     introIndex: 0, actCount: 0, paused: false, flash: 0,
     movement: 'free', vy: 0, driftX: 0, driftY: 0, grounded: false, jumpHeld: false,
     ruleKnown: false, pendingTrap: false, attackDuration: 13, afterimages: [], attackSide: 0,
-    gx: 0, gy: 1, lane: 1, laneHeld: 0, bossMotion: 0, motionTime: 0, shield: 0, guardFlash: 0
+    gx: 0, gy: 1, lane: 1, laneHeld: 0, bossMotion: 0, motionTime: 0, shield: 0, shieldAngle: 0, guardFlash: 0
   };
   touchTarget = null;
   touchPointer = null;
@@ -381,7 +381,7 @@ function setMovement(mode, gx = 0, gy = 1) {
   game.lane = clamp(Math.round((game.y - ARENA.y) / ARENA.h * 4 - 1), 0, 2);
   if (mode === 'shield') {
     game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2;
-    game.shield = 0; game.guardFlash = 0;
+    game.shield = 0; game.shieldAngle = 0; game.guardFlash = 0;
     game.bullets = []; game.hazards = game.hazards.filter(h => h.type === 'heal');
     for (const heal of game.hazards) { heal.x = game.x; heal.y = game.y; }
   }
@@ -632,8 +632,15 @@ function updatePlayer(dt) {
     game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2;
     if (touchTarget) {
       const dx = touchTarget.x - game.x, dy = touchTarget.y - game.y;
-      if (Math.hypot(dx, dy) > 10) game.shield = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+      if (Math.hypot(dx, dy) > 10) {
+        // Zona diagonal kecil mencegah perisai berkedip antara dua arah saat jari bergeser.
+        const horizontal = Math.abs(dx) > Math.abs(dy) * (game.shield % 2 ? .8 : 1.2);
+        game.shield = horizontal ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+      }
     }
+    // Tangkisan memakai input langsung; animasi hanya mengejar lewat putaran terpendek.
+    const delta = Math.atan2(Math.sin(game.shield * Math.PI / 2 - game.shieldAngle), Math.cos(game.shield * Math.PI / 2 - game.shieldAngle));
+    game.shieldAngle += delta * (reducedMotion ? 1 : 1 - Math.exp(-32 * dt));
     game.moving = false; return;
   }
   const previousX = game.x, previousY = game.y;
@@ -925,12 +932,17 @@ function drawHazard(h) {
     const next = !game.hazards.some(a => a.type === 'guardArrow' && a.age >= 0 && a.warn + a.travel - a.age < h.warn + h.travel - h.age);
     const angle = h.direction * Math.PI / 2 - Math.PI / 2;
     const progress = clamp((h.age - h.warn) / h.travel, 0, 1);
-    const distance = 24 + (Math.min(ARENA.w, ARENA.h) * .43 - 24) * (1 - progress);
+    const glide = reducedMotion ? progress : progress * progress * (2 - progress);
+    const distance = 24 + (Math.min(ARENA.w, ARENA.h) * .43 - 24) * (1 - glide);
     const x = ARENA.x + ARENA.w / 2 + Math.cos(angle) * distance;
     const y = ARENA.y + ARENA.h / 2 + Math.sin(angle) * distance;
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle + Math.PI);
     const color = next ? '#63e8ff' : '#faf6ed';
-    ctx.globalAlpha = active ? 1 : .55;
+    ctx.globalAlpha = Math.min(1, h.age / .16) * (.55 + .45 * progress);
+    if (!reducedMotion && active) {
+      const alpha = ctx.globalAlpha;
+      ctx.globalAlpha *= .2; line(-23, 0, -10, 0, color, 3); ctx.globalAlpha = alpha;
+    }
     line(-10, 0, 8, 0, color, 4);
     line(2, -6, 8, 0, color, 3); line(2, 6, 8, 0, color, 3);
     ctx.restore();
@@ -1122,8 +1134,13 @@ function draw() {
   if (game.movement === 'shield') {
     const cx = ARENA.x + ARENA.w / 2, cy = ARENA.y + ARENA.h / 2;
     ctx.strokeStyle = '#18452a'; ctx.lineWidth = 1; ctx.strokeRect(cx - 29, cy - 29, 58, 58);
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(game.shield * Math.PI / 2);
-    line(-13, -24, 13, -24, game.guardFlash > 0 ? '#ffffff' : '#46ed77', game.guardFlash > 0 ? 6 : 4);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(game.shieldAngle);
+    const impact = game.guardFlash / .18;
+    const shieldY = -24 + (reducedMotion ? 0 : Math.sin(impact * Math.PI) * 2);
+    line(-13, shieldY, 13, shieldY, '#46ed77', 4);
+    if (impact > 0) {
+      ctx.globalAlpha = impact; line(-13, shieldY, 13, shieldY, '#ffffff', 4 + impact * 2);
+    }
     ctx.restore();
   }
   if (game.movement === 'lanes') for (let i = 1; i <= 3; i++) {
