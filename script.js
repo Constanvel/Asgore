@@ -317,7 +317,7 @@ function startAttack() {
     'TENUN BARA — Tembakan mengunci posisi terakhir. Tinggalkan garis bidik sebelum dilepas.',
     'HUJAN KELOPAK — Bara melengkung lalu jatuh. Cari sela saat kipas mulai terbuka.',
     'TARIKAN MAHKOTA — Panah ungu menunjukkan gravitasi. Lawan tarikan sambil menghindari tembakan.',
-    'PIJAKAN ABU — Atas / W / Spasi: lompat. Naiki platform sebelum lantai terbakar; pijakan berkedip sebelum hilang.',
+    'PIJAKAN ABU — Atas / W / Spasi: lompat. Pijakan bergerak dan runtuh satu detik setelah diinjak. Lompat antar tingkat, hindari palang yang melintas.',
     'SUMPAH PALSU — Tinggalkan garis bidik, baca tebasan. Jebakan berakhir setelah enam detik.',
     'RODA HUKUM — Gravitasi berputar! Spasi / ↥: lompat menjauhi dinding. Lepas lebih cepat untuk lompat pendek.',
     'BENANG TAKDIR — Atas/bawah: pindah jalur. Kiri/kanan: bergerak di jalur. Hindari dua jalur bertanda.',
@@ -472,12 +472,22 @@ function spawnRuleBullets(w) {
 }
 function spawnPlatforms(w) {
   if (game.movement !== 'platform') setMovement('platform');
-  for (let i = 0; i < 3; i++) addHazard('platform', {
-    x: ARENA.x + ARENA.w * (.13 + i * .25), y: ARENA.y + ARENA.h * (i === 1 ? .73 : .58),
-    w: ARENA.w * .24, h: 6
-  }, .65, 4.8);
-  addHazard('pillar', { x: ARENA.x, y: ARENA.y + ARENA.h * .82, w: ARENA.w, h: ARENA.h * .18 }, 1.45, 2.8);
-  if (w % 2) spawnVolley(w);
+  const scale = combatScale();
+  // Tinggi anak tangga di bawah puncak lompatan (149 × scale), termasuk pada ponsel.
+  for (let i = 0; i < 4; i++) {
+    const x = ARENA.x + ARENA.w * (.04 + i * .24);
+    addHazard('platform', {
+      x, baseX: x, y: ARENA.y + ARENA.h - [65, 115, 80, 130][(i + w) % 4] * scale,
+      w: ARENA.w * .17, h: 6, motion: (i % 2 ? -1 : 1) * 18 * scale, crumble: true
+    }, .35, 6);
+  }
+  addHazard('pillar', { x: ARENA.x, y: ARENA.y + ARENA.h - 24 * scale, w: ARENA.w, h: 24 * scale }, 1.8, 3.8);
+  const velocity = (w % 2 ? -1 : 1) * 210 * scale;
+  addHazard('hurdle', {
+    x: velocity > 0 ? ARENA.x - 20 : ARENA.x + ARENA.w,
+    y: ARENA.y + ARENA.h - 100 * scale, w: 18 * scale, h: 46 * scale,
+    vx: velocity, vy: 0, age: -2
+  }, .7, ARENA.w / Math.abs(velocity) + .2);
   playSFX('platform');
 }
 function setMovement(mode, gx = 0, gy = 1) {
@@ -591,7 +601,13 @@ function spawnAttackPattern() {
       spawnChaos(w); spawnWall(w, true);
       const wall = game.hazards[game.hazards.length - 1];
       // Celah wall tetap bisa dilewati; pusaran tidak menutup jalur yang ditandai biru.
-      for (const h of game.hazards) if (h.type === 'pinwheel') h.safeBand = [wall.gapY, wall.gapY + wall.gap];
+      for (const h of game.hazards) if (h.type === 'pinwheel') {
+        h.safeBand = [wall.gapY, wall.gapY + wall.gap];
+        // Sumber di dalam safeBand membuat semua peluru terhapus pada frame pertama.
+        const below = wall.gapY + wall.gap + 28;
+        h.y = below < ARENA.y + ARENA.h - 16 ? below : wall.gapY - 28;
+        h.rotation = Math.atan2(game.y - h.y, game.x - h.x);
+      }
       return 4.5;
     }
     spawnChaos(w, true); spawnCannons(w, false, 2); return 4.5;
@@ -616,7 +632,7 @@ function spawnAttackPattern() {
   if (game.pattern === 21) { spawnChaos(w, true); if (w % 2) spawnSlash(w, 1); return 3.2; }
   return [1.05, 5.2, .95, .8 + game.phase * .6, 3.6, 3.2,
     1 + ARENA.w / (295 * PHASES[game.phase].speed * combatScale()),
-    3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 5.8][game.pattern];
+    3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 6.5][game.pattern];
 }
 
 function releaseBullets(h) {
@@ -828,6 +844,7 @@ function updatePlayer(dt) {
       if (p.type !== 'platform' || p.age < p.warn || p.age >= p.life) continue;
       if (game.vy >= 0 && previousY + 7 <= p.y && game.y + 7 >= p.y && game.x + 5 > p.x && game.x - 5 < p.x + p.w) {
         game.y = p.y - 7; game.vy = 0; game.grounded = true;
+        if (p.crumble && !p.stepped) { p.stepped = true; p.life = Math.min(p.life, p.age + 1.05); }
       }
     }
     if (game.y >= ARENA.y + ARENA.h - 9) { game.y = ARENA.y + ARENA.h - 9; game.vy = 0; game.grounded = true; }
@@ -898,6 +915,12 @@ function update(dt) {
   const tutorial = game.state === 'tutorialDodge';
   game.attackTime += dt;
   game.invincible = Math.max(0, game.invincible - dt);
+  // Gerakkan pijakan sebelum collision; hati yang berdiri di atasnya ikut terbawa.
+  for (const p of game.hazards) if (p.type === 'platform' && p.motion && p.age >= p.warn && p.age < p.life) {
+    const x = p.baseX + Math.sin((p.age + dt - p.warn) * 1.8) * p.motion;
+    if (game.movement === 'platform' && game.grounded && Math.abs(game.y + 7 - p.y) < 1 && game.x + 5 > p.x && game.x - 5 < p.x + p.w) game.x += x - p.x;
+    p.x = x;
+  }
   if (!tutorial) updatePlayer(dt);
   const duration = game.attackDuration;
   if (!tutorial && game.phase === 4 && game.attackTime >= game.healTime && game.attackTime < duration - 3) {
@@ -1726,6 +1749,8 @@ function resizeGame() {
     if (object.h) object.h *= sy;
     if (Number.isFinite(object.gapY)) object.gapY = ARENA.y + (object.gapY - old.y) * sy;
     if (object.safeBand) object.safeBand = object.safeBand.map(y => ARENA.y + (y - old.y) * sy);
+    if (Number.isFinite(object.baseX)) object.baseX = ARENA.x + (object.baseX - old.x) * sx;
+    if (object.motion) object.motion *= sx;
     if (object.gap) object.gap *= sy;
     if (object.gapSpeed) object.gapSpeed *= sy;
     if (object.type === 'wall') object.width *= sx;
