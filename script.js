@@ -28,7 +28,7 @@ function resetGame() {
     state: 'intro', hp: MAX_HP, bossHp: MAX_BOSS_HP, items: 2, turn: 0,
     x: ARENA.x + ARENA.w / 2, y: ARENA.y + ARENA.h * 0.75,
     invincible: 0, time: 0, attackTime: 0, phase: 1, transition: 0, moving: false,
-    spawnTime: 0, wave: 0, pattern: 0, hazards: [], bullets: [], particles: [],
+    spawnTime: 0, healTime: 5, wave: 0, pattern: 0, hazards: [], bullets: [], particles: [],
     bossX: VIEW.w / 2, bossY: bossCenterY(), bossTarget: 0.5,
     charge: 0, dash: 0, teleport: 0, shake: 0, hurtFlash: 0,
     introIndex: 0, actCount: 0, paused: false, flash: 0,
@@ -186,6 +186,7 @@ function startAttack() {
   if (game.pattern === 5) playSFX('ultimate');
   game.turn++;
   game.attackTime = 0;
+  game.healTime = 5;
   game.spawnTime = 0.9;
   game.wave = 0;
   game.hazards = [];
@@ -201,7 +202,7 @@ function startAttack() {
     'Tombak berganti: acak, berbaris, lalu membidikmu. Baca jalur putus-putus.',
     'Tiga arah tebasan bergantian. Garis lebar bertanda akan menyala; menjauh tegak lurus.',
     'Sudut biru menandai zona asli. Pindah sebelum zona X terbakar.',
-    'Combo berganti tiap giliran. Biru: DIAM. Oranye: GERAK. Baca celah dan warning.',
+    'Combo berganti tiap giliran. Ambil tanda + hijau untuk memulihkan 6 HP. Tetap baca celah dan warning.',
     'Dinding tombak mendekat. Pindah ke celah bertanda dua garis biru sebelum dinding melintas.',
     'SUMPAH DUA WARNA — Biru: diam. Oranye: terus bergerak saat nyalanya aktif.',
     'MAHKOTA PECAH — Cincin mengembang. Lewati bukaan biru; jangan terjebak dekat sumber.',
@@ -243,6 +244,21 @@ function finishGame(result) {
 // 3. POLA SERANGAN. Peringatan selalu muncul sebelum objek berbahaya aktif.
 function addHazard(type, data, warn = PHASES[game.phase].warning, active = 0.5) {
   game.hazards.push({ type, age: 0, warn, life: warn + active, fired: false, ...data });
+}
+function spawnHeal() {
+  const offset = (game.wave % 2 ? -1 : 1) * 85 * combatScale();
+  let x = clamp(game.x + offset, ARENA.x + 18, ARENA.x + ARENA.w - 18), y = game.y;
+  if (game.movement === 'gravity') {
+    if (game.gx) { x = game.gx > 0 ? ARENA.x + ARENA.w - 12 : ARENA.x + 12; y += offset; }
+    else y = game.gy > 0 ? ARENA.y + ARENA.h - 12 : ARENA.y + 12;
+  } else if (game.movement === 'lanes') y = ARENA.y + ARENA.h * (game.lane + 1) / 4;
+  else if (game.movement === 'platform') {
+    const platforms = game.hazards.filter(h => h.type === 'platform' && h.age >= h.warn && h.life - h.age > 1);
+    const nearest = platforms.sort((a, b) => Math.abs(a.x + a.w / 2 - game.x) - Math.abs(b.x + b.w / 2 - game.x))[0];
+    if (nearest) { x = nearest.x + nearest.w / 2; y = nearest.y - 14; }
+    else y = ARENA.y + ARENA.h - 14;
+  }
+  addHazard('heal', { x, y: clamp(y, ARENA.y + 12, ARENA.y + ARENA.h - 12) }, .4, 5);
 }
 function spawnFlame(w, delay = 0) {
   const width = clamp(ARENA.w * 0.085, 24, 44);
@@ -678,6 +694,9 @@ function update(dt) {
   game.invincible = Math.max(0, game.invincible - dt);
   updatePlayer(dt);
   const duration = game.attackDuration;
+  if (game.phase === 4 && game.attackTime >= game.healTime && game.attackTime < duration - 3) {
+    spawnHeal(); game.healTime += 7;
+  }
   game.spawnTime -= dt;
   if (game.spawnTime <= 0 && game.attackTime < duration - 2.6) game.spawnTime += spawnAttackPattern();
   // COLLISION DETECTION: warning tidak memberi damage, hitbox hati radius 4 pixel.
@@ -685,6 +704,13 @@ function update(dt) {
     h.age += dt;
     if (h.type === 'beam' && h.age >= 0 && !h.charging) { h.charging = true; playSFX('blasterCharge'); }
     if (h.age < h.warn || h.age >= h.life) continue;
+    if (h.type === 'heal') {
+      if (game.hp < MAX_HP && Math.hypot(game.x - h.x, game.y - h.y) < 17) {
+        game.hp = Math.min(MAX_HP, game.hp + 6);
+        h.age = h.life; playSFX('heal'); drawUI();
+      }
+      continue;
+    }
     if (!h.fired) {
       h.fired = true;
       playSFX('attack');
@@ -853,7 +879,14 @@ function drawHazard(h) {
   if (h.age < 0) return;
   const active = h.age >= h.warn && !(h.age < h.safeUntil);
   const pulse = Math.floor(h.age * 9) % 2 ? '#b39158' : '#706044';
-  if (h.type === 'beam') {
+  if (h.type === 'heal') {
+    ctx.globalAlpha = active ? (h.life - h.age < 1 ? .45 + .55 * (Math.floor(h.age * 8) % 2) : 1) : .4;
+    rect(h.x - 10, h.y - 10, 20, 20, '#071e13');
+    ctx.strokeStyle = '#67fa9b'; ctx.lineWidth = 1; ctx.strokeRect(h.x - 10, h.y - 10, 20, 20);
+    rect(h.x - 2, h.y - 7, 4, 14, '#67fa9b'); rect(h.x - 7, h.y - 2, 14, 4, '#67fa9b');
+    ctx.fillStyle = '#b6ffcf'; ctx.textAlign = 'center'; ctx.font = '10px monospace';
+    ctx.fillText('+6', h.x, h.y < ARENA.y + 26 ? h.y + 22 : h.y - 14); ctx.globalAlpha = 1;
+  } else if (h.type === 'beam') {
     const color = active ? '#fff3da' : '#ffb52e';
     ctx.setLineDash(active ? [] : [8, 8]);
     line(h.x, h.y, h.x2, h.y2, active ? '#ff573a' : '#ffb52e22', h.width);
@@ -1039,7 +1072,7 @@ function draw() {
     const y = game.gy > 0 ? ARENA.y + ARENA.h - 3 : ARENA.y;
     rect(x, y, game.gx ? 3 : ARENA.w, game.gy ? 3 : ARENA.h, '#559cff');
   }
-  for (const h of game.hazards) drawHazard(h);
+  for (const h of game.hazards) if (h.type !== 'heal') drawHazard(h);
   for (const b of game.bullets) {
     if (b.type === 'spear') {
       rect(b.x - 1, b.y - 13, 3, 23, COLORS.gold);
@@ -1060,6 +1093,7 @@ function draw() {
       if (b.rule === 'move') { line(b.x - 2, b.y - 3, b.x + 2, b.y, '#40200e', 2); line(b.x + 2, b.y, b.x - 2, b.y + 3, '#40200e', 2); }
     }
   }
+  for (const h of game.hazards) if (h.type === 'heal') drawHazard(h);
   if (game.state === 'bossAttack') {
     const direction = game.gx < 0 ? '←' : game.gx > 0 ? '→' : game.gy < 0 ? '↑' : '↓';
     const hint = { platform: '↑ / W / SPASI: LOMPAT', gravity: `GRAV ${direction} | SPASI / ↥: LOMPAT`,
@@ -1190,6 +1224,7 @@ function playSFX(name) {
     confirm: [[740, .05, 'square', .012], [1110, .06, 'square', .01, .04]],
     cancel: [[660, .07, 'square', .013, 0, 330]],
     text: [[780, .025, 'square', .006]],
+    heal: [[523, .1, 'triangle', .025], [659, .1, 'triangle', .025, .08], [784, .18, 'triangle', .03, .16]],
     voice: [[145, .035, 'square', .01], [163, .035, 'square', .008, .055], [145, .035, 'square', .008, .11]],
     // Efek blaster sintetis: charge naik, lalu tembakan berat dengan beberapa lapis frekuensi.
     blasterCharge: [[160, .5, 'sawtooth', .026, 0, 720], [240, .52, 'square', .012, 0, 1080], [80, .55, 'triangle', .035, 0, 360]],
