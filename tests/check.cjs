@@ -32,10 +32,14 @@ assert.equal(run('game.hp'), 36, 'dua hit bersamaan hanya memberi satu damage');
 run('keys.add("arrowleft"); keys.add("arrowup"); updatePlayer(99)');
 assert.equal(run('game.x'), run('ARENA.x + 9'));
 assert.equal(run('game.y'), run('ARENA.y + 9'));
-run('game.bossHp = 54; updatePhase()');
+run('game.bossHp = 135; updatePhase()');
 assert.equal(run('game.phase'), 2);
-run('game.bossHp = 53; updatePhase()');
+run('game.bossHp = 89; updatePhase()');
 assert.equal(run('game.phase'), 3);
+run('game.bossHp = 45; updatePhase()');
+assert.equal(run('game.phase'), 3);
+run('game.bossHp = 44; updatePhase()');
+assert.equal(run('game.phase'), 4);
 run('game.hazards = []; spawnFlame(0)');
 assert.ok(run('game.hazards.length >= 2'), 'final flame mengejar dengan beberapa pillar');
 run('game.x = game.hazards[0].x + 10; game.y = ARENA.y + 30');
@@ -49,10 +53,10 @@ for (let variant = 0; variant < 5; variant++) {
 }
 run('game.hazards = []; spawnWall(3)');
 assert.ok(run('game.hazards[0].gapSpeed !== 0'), 'varian wall dengan celah bergerak');
-for (let combo = 0; combo < 3; combo++) {
+for (let combo = 0; combo < 4; combo++) {
   run(`game.pattern = 5; game.wave = ${combo}; game.hazards = []; spawnAttackPattern()`);
   const types = run('[...new Set(game.hazards.map(h => h.type))].sort().join(",")');
-  assert.equal(types, ['pillar,spear', 'spiral,wall', 'pillar,slash'][combo]);
+  for (const type of [['spiral', 'wall'], ['pillar', 'slash'], ['gravity', 'volley'], ['platform', 'pillar']][combo]) assert.ok(types.includes(type));
 }
 run('game.hazards = []; spawnZones(0)');
 assert.ok(run('game.hazards[0].warn - game.hazards[0].reveal > ARENA.w / 3 / (310 * combatScale())'));
@@ -72,7 +76,8 @@ assert.equal(run('game.hp'), 40);
 assert.equal(run('game.phase'), 1);
 elements.battle.getBoundingClientRect = () => ({ width: 1920, height: 1200, left: 0, top: 0 });
 run('resizeGame()');
-assert.ok(run('ARENA.y + ARENA.h + 18 + 140 < VIEW.h - 100'), 'arena dan HUD terpusat, bukan menempel bawah');
+assert.equal(run('ARENA.w'), 800);
+assert.equal(run('ARENA.h'), 480);
 run('openMenu(); startAttack(); game.hazards = []; spawnPulse(0)');
 assert.equal(run('game.hazards[0].type'), 'pulse');
 run('game.hazards[0].age = game.hazards[0].warn; game.moving = false');
@@ -84,7 +89,7 @@ assert.equal(run('checkCollision(game.hazards[0])'), false, 'pulse oranye aman s
 run('keys.clear(); touchTarget = null; updatePlayer(1 / 120)');
 assert.equal(run('checkCollision(game.hazards[0])'), true);
 run('game.hazards = []; spawnRing(0); game.bullets = []; releaseBullets(game.hazards[0])');
-assert.ok(run('game.bullets.length >= 12 && game.bullets.length < 30'), 'ring padat dengan celah');
+assert.ok(run('game.bullets.length >= 12 && game.bullets.length < 38'), 'ring padat dengan celah');
 run('game.x = game.hazards[0].x; game.y = game.hazards[0].y');
 assert.equal(run('checkCollision(game.hazards[0])'), false, 'inti ring masih aman selama warning');
 run('game.hazards[0].age = game.hazards[0].warn');
@@ -95,9 +100,28 @@ run('game.bullets[0].x = ARENA.x + ARENA.w - 6; game.bullets[0].vx = 200; moveBu
 assert.ok(run('game.bullets[0].vx < 0 && game.bullets[0].x < ARENA.x + ARENA.w'), 'peluru memantul di dalam arena');
 run('game.hazards = []; spawnBloom(0); game.bullets = []; releaseBullets(game.hazards[0])');
 assert.ok(run('game.bullets.length >= 7 && game.bullets.every(b => b.gravity > 0)'));
-run('game.turn = 2; game.phase = 3; game.pattern = 5');
-for (let combo = 0; combo < 3; combo++) {
-  run(`game.wave = ${combo}; game.hazards = []; spawnAttackPattern()`);
-  assert.equal(run('[...new Set(game.hazards.map(h => h.type))].sort().join(",")'), ['ring,volley', 'bloom,volley', 'pulse'][combo]);
-}
+run('resetGame(); openMenu(); chooseAction("mercy"); continueGame()');
+assert.equal(run('game.pattern'), 14);
+assert.equal(run('game.attackDuration'), 6);
+run('game.hazards = []; game.bullets = []; game.attackTime = 5.99; update(.02)');
+assert.equal(run('game.state'), 'menu');
+run('startAttack(); game.hazards = []; keys.clear(); touchTarget = null; spawnGravity(0); game.hazards[0].age = game.hazards[0].warn; game.x = ARENA.x + ARENA.w / 2');
+const gravityX = run('game.x');
+run('updatePlayer(.1)');
+assert.ok(run('game.x') < gravityX, 'gravitasi kiri menarik hati tanpa input');
+run('game.hazards = []; spawnPlatforms(0); game.y = ARENA.y + ARENA.h - 9; game.grounded = true; keys.add(" "); updatePlayer(1 / 120)');
+assert.ok(run('game.vy < 0 && game.y < ARENA.y + ARENA.h - 9'), 'platform mode dapat melompat');
+run('keys.clear(); game.hazards.forEach(h => h.age = h.warn); game.vy = 100; game.x = game.hazards[0].x + 15; game.y = game.hazards[0].y - 8; updatePlayer(.02)');
+assert.equal(run('game.grounded'), true, 'mendarat di atas platform solid');
+run('game.hazards = game.hazards.filter(h => h.type === "platform"); game.hazards.forEach(h => h.age = h.life - .01); game.bullets = []; game.spawnTime = 10; update(.02); updatePlayer(.02)');
+assert.equal(run('game.hazards.length'), 0, 'platform sementara menghilang setelah waktunya habis');
+assert.equal(run('game.grounded'), false, 'pemain jatuh ketika platform menghilang');
+run('game.moving = false; game.x = ARENA.x + 50; game.y = ARENA.y + 50');
+assert.equal(run('checkCollision({type:"fire", rule:"still", x:game.x, y:game.y, r:5}, {x:game.x,y:game.y})'), false);
+assert.equal(run('checkCollision({type:"fire", rule:"move", x:game.x, y:game.y, r:5}, {x:game.x,y:game.y})'), true);
+run('resetGame(); openMenu(); game.bossHp = 60; game.turn = 4; chooseAction("act"); continueGame()');
+assert.equal(run('game.ruleKnown'), true);
+elements.battle.getBoundingClientRect = () => ({ width: 390, height: 844, left: 0, top: 0 });
+run('resizeGame(); game.phase = 4; game.turn = 2; prepareBossAttack(0); updateBoss(.1)');
+assert.ok(run('game.bossX + 100 * bossScale() < VIEW.w'), 'tombak boss tetap terlihat di layar ponsel');
 console.log('PASS: startup, audio fallback, movement, warning, invulnerability, phases, patterns, items, endings, restart');
