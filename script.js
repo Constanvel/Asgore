@@ -34,7 +34,7 @@ function resetGame() {
     introIndex: 0, actCount: 0, paused: false, flash: 0,
     movement: 'free', vy: 0, driftX: 0, driftY: 0, grounded: false, jumpHeld: false,
     ruleKnown: false, pendingTrap: false, attackDuration: 13, afterimages: [], attackSide: 0,
-    gx: 0, gy: 1, lane: 1, laneHeld: 0, bossMotion: 0, motionTime: 0
+    gx: 0, gy: 1, lane: 1, laneHeld: 0, bossMotion: 0, motionTime: 0, shield: 0, guardFlash: 0
   };
   touchTarget = null;
   touchPointer = null;
@@ -171,7 +171,7 @@ function startAttack() {
   updatePhase();
   game.state = 'bossAttack';
   // Pola baru masuk giliran normal; ACT/ITEM memperpanjang rotasi hingga semua pola tampil.
-  const deck = game.phase === 1 ? [15, 17, 2, 16, 8] : game.phase === 2 ? [16, 17, 15, 6, 18, 7] : [15, 18, 17, 16, 13, 7];
+  const deck = game.phase === 1 ? [15, 17, 19, 16, 8] : game.phase === 2 ? [16, 19, 15, 6, 18, 7] : [19, 18, 17, 16, 13, 7];
   game.pattern = game.pendingTrap ? 14 : game.phase === 4 ? 5 : deck[game.turn % deck.length];
   if (game.pattern === 7 && !game.ruleKnown) {
     game.state = 'playerAction'; game.ruleKnown = true;
@@ -181,7 +181,7 @@ function startAttack() {
   game.state = 'bossAttack';
   game.attackDuration = game.pendingTrap ? 6 : PHASES[game.phase].duration;
   game.pendingTrap = false;
-  setMovement(game.pattern === 13 ? 'platform' : 'free');
+  setMovement(game.pattern === 19 ? 'shield' : game.pattern === 13 ? 'platform' : 'free');
   game.afterimages = [];
   if (game.pattern === 5) playSFX('ultimate');
   game.turn++;
@@ -193,6 +193,7 @@ function startAttack() {
   game.bullets = [];
   game.x = ARENA.x + ARENA.w / 2;
   game.y = ARENA.y + ARENA.h * 0.75;
+  if (game.movement === 'shield') game.y = ARENA.y + ARENA.h / 2;
   game.invincible = 0.8;
   touchTarget = null;
   keys.clear();
@@ -215,7 +216,8 @@ function startAttack() {
     'RODA HUKUM — Gravitasi berputar! Spasi / ↥: lompat menjauhi dinding. Lepas lebih cepat untuk lompat pendek.',
     'BENANG TAKDIR — Atas/bawah: pindah jalur. Kiri/kanan: bergerak di jalur. Hindari dua jalur bertanda.',
     'PENGADILAN SINAR — Meriam mengunci posisi saat muncul. Keluar dari garis bidik sebelum sinar menyala.',
-    'CROSSFIRE — Tinggalkan titik bidik. Meriam bersilang, lalu cincin menutup ruang gerak.'
+    'CROSSFIRE — Tinggalkan titik bidik. Meriam bersilang, lalu cincin menutup ruang gerak.',
+    'PERISAI HIJAU — Hati terkunci di tengah. WASD / panah: hadapkan perisai ke asal panah. Panah biru tiba paling dahulu.'
   ];
   showDialogue(isFinalPhase() ? 'KING AVARON — SUMPAH TERAKHIR' : 'BERTAHAN', tips[game.pattern]);
   drawUI();
@@ -248,7 +250,8 @@ function addHazard(type, data, warn = PHASES[game.phase].warning, active = 0.5) 
 function spawnHeal() {
   const offset = (game.wave % 2 ? -1 : 1) * 85 * combatScale();
   let x = clamp(game.x + offset, ARENA.x + 18, ARENA.x + ARENA.w - 18), y = game.y;
-  if (game.movement === 'gravity') {
+  if (game.movement === 'shield') { x = ARENA.x + ARENA.w / 2; y = ARENA.y + ARENA.h / 2; }
+  else if (game.movement === 'gravity') {
     if (game.gx) { x = game.gx > 0 ? ARENA.x + ARENA.w - 12 : ARENA.x + 12; y += offset; }
     else y = game.gy > 0 ? ARENA.y + ARENA.h - 12 : ARENA.y + 12;
   } else if (game.movement === 'lanes') y = ARENA.y + ARENA.h * (game.lane + 1) / 4;
@@ -371,11 +374,32 @@ function spawnPlatforms(w) {
   playSFX('platform');
 }
 function setMovement(mode, gx = 0, gy = 1) {
+  if (game.movement === 'shield' && mode !== 'shield') game.hazards = game.hazards.filter(h => h.type !== 'guardArrow');
   game.movement = mode; game.gx = gx; game.gy = gy;
   game.vy = 0; game.driftX = 0; game.driftY = 0;
   game.grounded = false; game.jumpHeld = false; game.laneHeld = 0;
   game.lane = clamp(Math.round((game.y - ARENA.y) / ARENA.h * 4 - 1), 0, 2);
+  if (mode === 'shield') {
+    game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2;
+    game.shield = 0; game.guardFlash = 0;
+    game.bullets = []; game.hazards = game.hazards.filter(h => h.type === 'heal');
+    for (const heal of game.hazards) { heal.x = game.x; heal.y = game.y; }
+  }
   document.body.dataset.movement = mode;
+}
+function faceShield(key) {
+  const direction = { w: 0, arrowup: 0, d: 1, arrowright: 1, s: 2, arrowdown: 2, a: 3, arrowleft: 3 }[key];
+  if (game.movement === 'shield' && direction !== undefined) game.shield = direction;
+}
+function spawnShieldArrows(w) {
+  if (game.movement !== 'shield') setMovement('shield');
+  const sequence = [0, 1, 2, 3, 1, 3, 0, 2];
+  const spacing = .5 - game.phase * .045;
+  for (let i = 0; i < 3; i++) addHazard('guardArrow', {
+    direction: sequence[(w * 3 + i + game.turn) % sequence.length],
+    travel: 1.05 - game.phase * .08, age: -i * spacing
+  }, .5, 1.08 - game.phase * .08);
+  return spacing * 3 + .18;
 }
 function spawnGravityRun(w) {
   const [gx, gy] = [[0, 1], [1, 0], [0, -1], [-1, 0]][w % 4];
@@ -439,7 +463,7 @@ function spawnAttackPattern() {
     if (w % 5 === 1) { setMovement('free'); spawnFlame(w); spawnCannons(w); for (let i = 0; i < 4; i++) spawnSlash(w + i, .45 + i * .55); return 3.4; }
     if (w % 5 === 2) { setMovement('free'); spawnGravity(w + game.turn); spawnVolley(w); return spawnGravityRun(game.turn); }
     if (w % 5 === 3) { spawnPlatforms(w); spawnCannons(w); return 5.8; }
-    setMovement('lanes'); spawnCannons(w, true); return 1.5;
+    spawnShieldArrows(w); return 3;
   }
   if (game.pattern === 6) {
     spawnWall(w + game.turn);
@@ -463,6 +487,7 @@ function spawnAttackPattern() {
   if (game.pattern === 16) { if (game.movement !== 'lanes') setMovement('lanes'); spawnCannons(w, true); return 1.45; }
   if (game.pattern === 17) { spawnCannons(w); if (w % 2) spawnVolley(w, false, .4); return 1.65; }
   if (game.pattern === 18) { setMovement('free'); spawnCannons(w); if (w % 2) spawnRing(w); return 2; }
+  if (game.pattern === 19) return spawnShieldArrows(w);
   return [1.05, 5.2, .95, .8 + game.phase * .6, 3.6, 3.2,
     1 + ARENA.w / (295 * PHASES[game.phase].speed * combatScale()),
     3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 5.8][game.pattern];
@@ -603,6 +628,14 @@ function updateBoss(dt) {
 }
 // PLAYER MOVEMENT: diagonal dinormalisasi; sentuh bergerak dengan kecepatan yang sama.
 function updatePlayer(dt) {
+  if (game.movement === 'shield') {
+    game.x = ARENA.x + ARENA.w / 2; game.y = ARENA.y + ARENA.h / 2;
+    if (touchTarget) {
+      const dx = touchTarget.x - game.x, dy = touchTarget.y - game.y;
+      if (Math.hypot(dx, dy) > 10) game.shield = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+    }
+    game.moving = false; return;
+  }
   const previousX = game.x, previousY = game.y;
   let dx = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
   let dy = Number(keys.has('s') || keys.has('arrowdown')) - Number(keys.has('w') || keys.has('arrowup'));
@@ -683,7 +716,7 @@ function moveBullet(b, dt) {
 function update(dt) {
   if (game.paused) return;
   game.time += dt;
-  for (const timer of ['flash', 'hurtFlash', 'shake', 'transition', 'charge', 'dash', 'teleport']) {
+  for (const timer of ['flash', 'hurtFlash', 'shake', 'transition', 'charge', 'dash', 'teleport', 'guardFlash']) {
     game[timer] = Math.max(0, game[timer] - dt);
   }
   updateBoss(dt);
@@ -704,6 +737,15 @@ function update(dt) {
     h.age += dt;
     if (h.type === 'beam' && h.age >= 0 && !h.charging) { h.charging = true; playSFX('blasterCharge'); }
     if (h.age < h.warn || h.age >= h.life) continue;
+    if (h.type === 'guardArrow') {
+      if (h.age >= h.warn + h.travel) {
+        h.age = h.life;
+        if (game.shield === h.direction) { game.guardFlash = .18; playSFX('block'); }
+        else hitPlayer();
+        if (game.state !== 'bossAttack') return;
+      }
+      continue;
+    }
     if (h.type === 'heal') {
       if (game.hp < MAX_HP && Math.hypot(game.x - h.x, game.y - h.y) < 17) {
         game.hp = Math.min(MAX_HP, game.hp + 6);
@@ -778,7 +820,7 @@ function pixelSprite(rows, x, y, scale, palette) {
 }
 const heartSprite = ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'];
 function drawHeart(x, y, broken = false) {
-  const color = game.state === 'bossAttack' ? { gravity: '#559cff', platform: '#559cff', lanes: '#c18aff' }[game.movement] : null;
+  const color = game.state === 'bossAttack' ? { shield: '#46ed77', gravity: '#559cff', platform: '#559cff', lanes: '#c18aff' }[game.movement] : null;
   pixelSprite(heartSprite, x - 7, y - 6, 2, { r: color || COLORS.red });
   if (broken) { rect(x, y - 6, 2, 6, '#080909'); rect(x - 2, y, 2, 5, '#080909'); }
 }
@@ -879,7 +921,20 @@ function drawHazard(h) {
   if (h.age < 0) return;
   const active = h.age >= h.warn && !(h.age < h.safeUntil);
   const pulse = Math.floor(h.age * 9) % 2 ? '#b39158' : '#706044';
-  if (h.type === 'heal') {
+  if (h.type === 'guardArrow') {
+    const next = !game.hazards.some(a => a.type === 'guardArrow' && a.age >= 0 && a.warn + a.travel - a.age < h.warn + h.travel - h.age);
+    const angle = h.direction * Math.PI / 2 - Math.PI / 2;
+    const progress = clamp((h.age - h.warn) / h.travel, 0, 1);
+    const distance = 24 + (Math.min(ARENA.w, ARENA.h) * .43 - 24) * (1 - progress);
+    const x = ARENA.x + ARENA.w / 2 + Math.cos(angle) * distance;
+    const y = ARENA.y + ARENA.h / 2 + Math.sin(angle) * distance;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle + Math.PI);
+    const color = next ? '#63e8ff' : '#faf6ed';
+    ctx.globalAlpha = active ? 1 : .55;
+    line(-10, 0, 8, 0, color, 4);
+    line(2, -6, 8, 0, color, 3); line(2, 6, 8, 0, color, 3);
+    ctx.restore();
+  } else if (h.type === 'heal') {
     ctx.globalAlpha = active ? (h.life - h.age < 1 ? .45 + .55 * (Math.floor(h.age * 8) % 2) : 1) : .4;
     rect(h.x - 10, h.y - 10, 20, 20, '#071e13');
     ctx.strokeStyle = '#67fa9b'; ctx.lineWidth = 1; ctx.strokeRect(h.x - 10, h.y - 10, 20, 20);
@@ -1064,6 +1119,13 @@ function draw() {
   ctx.save();
   // Clipping yang sama untuk SEMUA warning, spiral, peluru, dan hati.
   ctx.beginPath(); ctx.rect(ARENA.x, ARENA.y, ARENA.w, ARENA.h); ctx.clip();
+  if (game.movement === 'shield') {
+    const cx = ARENA.x + ARENA.w / 2, cy = ARENA.y + ARENA.h / 2;
+    ctx.strokeStyle = '#18452a'; ctx.lineWidth = 1; ctx.strokeRect(cx - 29, cy - 29, 58, 58);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(game.shield * Math.PI / 2);
+    line(-13, -24, 13, -24, game.guardFlash > 0 ? '#ffffff' : '#46ed77', game.guardFlash > 0 ? 6 : 4);
+    ctx.restore();
+  }
   if (game.movement === 'lanes') for (let i = 1; i <= 3; i++) {
     line(ARENA.x, ARENA.y + ARENA.h * i / 4, ARENA.x + ARENA.w, ARENA.y + ARENA.h * i / 4, '#81539a88', 2);
   }
@@ -1096,7 +1158,7 @@ function draw() {
   for (const h of game.hazards) if (h.type === 'heal') drawHazard(h);
   if (game.state === 'bossAttack') {
     const direction = game.gx < 0 ? '←' : game.gx > 0 ? '→' : game.gy < 0 ? '↑' : '↓';
-    const hint = { platform: '↑ / W / SPASI: LOMPAT', gravity: `GRAV ${direction} | SPASI / ↥: LOMPAT`,
+    const hint = { shield: 'PERISAI: WASD / ↑ → ↓ ←', platform: '↑ / W / SPASI: LOMPAT', gravity: `GRAV ${direction} | SPASI / ↥: LOMPAT`,
       lanes: '↑ ↓: GANTI JALUR | ← →: GERAK' }[game.movement];
     if (hint) {
       ctx.fillStyle = '#d3bbff'; ctx.textAlign = 'center'; ctx.font = '11px monospace';
@@ -1225,6 +1287,7 @@ function playSFX(name) {
     cancel: [[660, .07, 'square', .013, 0, 330]],
     text: [[780, .025, 'square', .006]],
     heal: [[523, .1, 'triangle', .025], [659, .1, 'triangle', .025, .08], [784, .18, 'triangle', .03, .16]],
+    block: [[1100, .065, 'square', .025, 0, 550], [2200, .045, 'triangle', .016]],
     voice: [[145, .035, 'square', .01], [163, .035, 'square', .008, .055], [145, .035, 'square', .008, .11]],
     // Efek blaster sintetis: charge naik, lalu tembakan berat dengan beberapa lapis frekuensi.
     blasterCharge: [[160, .5, 'sawtooth', .026, 0, 720], [240, .52, 'square', .012, 0, 1080], [80, .55, 'triangle', .035, 0, 360]],
@@ -1312,7 +1375,7 @@ window.addEventListener('keydown', (event) => {
     return;
   }
   if (movementKeys.includes(key) && game.state === 'bossAttack' && !game.paused) {
-    event.preventDefault(); keys.add(key);
+    event.preventDefault(); keys.add(key); faceShield(key);
   }
   if (event.repeat) return;
   if (key === 'escape' || key === 'x') {
@@ -1360,6 +1423,7 @@ for (const button of document.querySelectorAll('[data-key]')) {
     if (game.state !== 'bossAttack' || game.paused) return;
     button.setPointerCapture(event.pointerId);
     keys.add(button.dataset.key);
+    faceShield(button.dataset.key);
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     button.addEventListener(name, () => keys.delete(button.dataset.key));

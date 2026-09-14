@@ -201,4 +201,25 @@ run('game.attackTime = 11.99; update(.02)');
 assert.equal(run('game.hazards.filter(h => h.type === "heal").length'), 1, 'pickup berikutnya muncul tujuh detik kemudian');
 run('openMenu()');
 assert.equal(run('game.hazards.length'), 0, 'pickup dibersihkan saat giliran selesai');
-console.log('PASS: combat, movement, cannons, boss, audio, final-phase healing, pickup timing and cleanup');
+run('resetGame(); openMenu(); game.bossHp = 132; game.turn = 1; startAttack(); game.spawnTime = 99');
+assert.equal(run('game.pattern'), 19, 'mode perisai masuk giliran normal');
+assert.equal(run('game.movement'), 'shield');
+run('keys.add("d"); faceShield("d"); updatePlayer(.1); keys.clear(); updatePlayer(.1)');
+assert.equal(run('game.x'), run('ARENA.x + ARENA.w / 2'), 'hati terkunci di tengah');
+assert.equal(run('game.shield'), 1, 'arah perisai bertahan setelah tombol dilepas');
+for (const [direction, key] of ['w', 'd', 's', 'a'].entries()) {
+  run(`faceShield('${key}'); game.hazards = []; addHazard('guardArrow', { direction: ${direction}, travel: .1 }, .1, .13)`);
+  const hp = run('game.hp');
+  run('for (let i = 0; i < 26; i++) update(.01)');
+  assert.equal(run('game.hp'), hp, `panah arah ${direction} berhasil ditangkis`);
+  assert.equal(run('game.hazards.length'), 0, 'panah yang ditangkis hilang');
+}
+run('faceShield("w"); game.invincible = 0; addHazard("guardArrow", { direction: 1, travel: .1 }, .1, .13); update(.05)');
+assert.equal(run('game.hp'), 40, 'warning panah tidak melukai');
+run('for (let i = 0; i < 20; i++) update(.01)');
+assert.equal(run('game.hp'), 36, 'salah arah menerima satu hit');
+run('game.hazards = []; spawnShieldArrows(0); setMovement("free")');
+assert.equal(run('game.hazards.length'), 0, 'panah dibersihkan ketika mode perisai berakhir');
+run('setMovement("shield"); spawnHeal()');
+assert.equal(run('game.hazards[0].x'), run('game.x'), 'heal tetap terjangkau saat hati terkunci');
+console.log('PASS: combat, movement, shield blocks/misses, cannons, boss, audio, healing and cleanup');

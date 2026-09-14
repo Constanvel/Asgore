@@ -61,6 +61,7 @@ body[data-phase='4'] .health-track { background: #7a1515; }
 .pause-overlay button:hover { border-color: #fff; color: #fff; }
 .touch-controls { display: none; }
 .jump-button { display: none; }
+body[data-movement='shield'] .slow-button { display: none; }
 body[data-movement='platform'] .jump-button, body[data-movement='gravity'] .jump-button { display: block; }
 @media (min-width: 900px) and (min-height: 700px) {
   h2 { font-size: 23px; }
