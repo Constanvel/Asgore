@@ -69,7 +69,8 @@ assert.ok(run('game.hazards[0].gapSpeed !== 0'), 'varian wall dengan celah berge
 for (let combo = 0; combo < 6; combo++) {
   run(`game.pattern = 5; game.wave = ${combo}; game.hazards = []; spawnAttackPattern()`);
   const types = run('[...new Set(game.hazards.map(h => h.type))].sort().join(",")');
-  for (const type of [['pinwheel','beam'], ['scythe','pillar','slash'], ['shift','hurdle'], ['guardArrow'], ['pinwheel','wall','slash'], ['scythe','beam','spear']][combo]) assert.ok(types.includes(type), types);
+  for (const type of [['pinwheel','beam'], ['scythe','pillar'], ['shift','hurdle'], ['guardArrow'], ['pinwheel','wall'], ['scythe','beam']][combo]) assert.ok(types.includes(type), types);
+  if ([0,1,4,5].includes(combo)) assert.equal(types.split(',').length, 2, 'combo pusaran/sabit maksimal dua keluarga serangan');
 }
 run('game.hazards = []; spawnZones(0)');
 assert.ok(run('game.hazards[0].warn - game.hazards[0].reveal > ARENA.w / 3 / (310 * combatScale())'));
@@ -285,14 +286,19 @@ for (let phase = 1; phase <= 4; phase++) {
 run('resetGame(); openMenu(); startAttack()');
 assert.equal(run('game.pattern'), 20, 'gelombang pertama langsung memakai pola ahli');
 run('game.hazards = []; game.bullets = []; spawnChaos(0, true); releaseBullets(game.hazards[0])');
-assert.ok(run('game.bullets.every(b => b.type === "scythe" && b.turn && b.bounces === 2)'), 'sabit melengkung dan memantul');
+assert.ok(run('game.bullets.every(b => b.type === "scythe" && b.turn && b.bounces === 1)'), 'sabit hanya memantul sekali');
+assert.equal(run('game.bullets.length'), 3, 'kipas sabit memiliki tiga peluru');
+assert.ok(run('game.hazards.every(h => h.warn >= .8 && h.y < ARENA.y + ARENA.h * .4)'), 'sumber terlihat lebih awal dan tidak muncul di bagian bawah');
 const speedBefore = run('Math.hypot(game.bullets[0].vx, game.bullets[0].vy)');
 const vxBefore = run('game.bullets[0].vx');
 run('moveBullet(game.bullets[0], .05)');
 assert.notEqual(run('game.bullets[0].vx'), vxBefore);
 assert.ok(Math.abs(run('Math.hypot(game.bullets[0].vx, game.bullets[0].vy)') - speedBefore) < .00001);
 run('game.hazards = []; game.bullets = []; game.pattern = 20; game.spawnTime = 0; game.wave = 0; spawnChaos(0); update(.01)');
-assert.equal(run('game.wave'), 1, 'gelombang baru bertumpuk dengan emitter yang masih aktif');
+assert.equal(run('game.wave'), 0, 'pusaran menunggu gelombang lama selesai');
+run('game.hazards = []; game.bullets = []; spawnChaos(0); releaseBullets(game.hazards[0])');
+assert.equal(run('game.bullets.length'), 5, 'pusaran menyediakan celah lebih lebar');
+assert.ok(run('game.bullets.every(b => Math.abs(b.turn) <= .2)'), 'kelokan pusaran tidak menutup celah terlalu cepat');
 run('game.hazards = []; game.bullets = []; setMovement("free"); game.pattern = 5; game.wave = 3; spawnAttackPattern()');
 assert.equal(run('game.movement'), 'shield');
 assert.equal(run('game.hazards.filter(h => h.type === "guardArrow").length'), 10);

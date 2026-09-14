@@ -324,8 +324,8 @@ function startAttack() {
     'PENGADILAN SINAR — Meriam mengunci posisi saat muncul. Keluar dari garis bidik sebelum sinar menyala.',
     'CROSSFIRE — Tinggalkan titik bidik. Meriam bersilang, lalu cincin menutup ruang gerak.',
     'PERISAI HIJAU — Rentetan lima panah. Hadapkan perisai ke asal panah; yang biru tiba paling dahulu.',
-    'CROWN VORTEX — Dua pusaran berlawanan arah, sinar membidik posisi terakhirmu. Berputar lewat sela, jangan diam di sudut.',
-    'REAPER CAROUSEL — Sabit melengkung dan memantul. Tinggalkan bidikan sebelum tebasan menyusul.'
+    'CROWN VORTEX — Dua pusaran bergantian dari atas. Ikuti celah lebar; sinar hanya menyusul pada gelombang tertentu.',
+    'REAPER CAROUSEL — Tiga sabit melengkung, masing-masing memantul sekali. Cari sela sebelum tebasan berikutnya.'
   ];
   game.help = tips[game.pattern];
   showDialogue('CHAOS · EXPERT', game.pattern === 5 ? 'Sumpah terakhir. Tanda + hijau memulihkan 6 HP.' : '“Bahkan jeda harus kau perjuangkan.”');
@@ -549,12 +549,12 @@ function spawnCannons(w, lanes = false, count = lanes ? 2 : 3) {
 function spawnChaos(w, scythes = false) {
   for (let side = 0; side < 2; side++) {
     const x = ARENA.x + ARENA.w * (side ? .8 : .2);
-    const y = ARENA.y + ARENA.h * (w % 2 ? .65 : .2);
+    const y = ARENA.y + ARENA.h * (w % 2 ? .32 : .18);
     addHazard(scythes ? 'scythe' : 'pinwheel', {
       x, y, rotation: Math.atan2(game.y - y, game.x - x),
       direction: (side ? -1 : 1) * (w % 2 ? -1 : 1), emit: 0,
-      age: -side * .18
-    }, .6, scythes ? 1.4 : 2.6);
+      age: -side * .45
+    }, .85, scythes ? 1.2 : 2.2);
   }
 }
 // Posisi teleport menentukan sisi asal volley/wall dan titik spiral berikutnya.
@@ -583,12 +583,18 @@ function spawnAttackPattern() {
     // Pergantian mode membersihkan serangan lama agar heart terkunci tidak terkena peluru bebas.
     game.bullets = []; game.hazards = game.hazards.filter(h => h.type === 'heal');
     setMovement('free');
-    if (w % 6 === 0) { spawnChaos(w); spawnCannons(w); return 4; }
-    if (w % 6 === 1) { spawnChaos(w, true); spawnFlame(w); for (let i = 0; i < 3; i++) spawnSlash(w + i, .7 + i * .55); return 4; }
+    if (w % 6 === 0) { spawnChaos(w); spawnCannons(w, false, 2); return 4.5; }
+    if (w % 6 === 1) { spawnChaos(w, true); spawnFlame(w); return 4.5; }
     if (w % 6 === 2) return spawnGravityRun(w + game.turn);
     if (w % 6 === 3) { spawnShieldArrows(w); spawnShieldArrows(w + 1); const arrows = game.hazards.filter(h => h.type === 'guardArrow'); arrows.slice(5).forEach(h => h.age -= 1.5); return 4.2; }
-    if (w % 6 === 4) { spawnChaos(w); spawnWall(w, true); spawnSlash(w, 1.1); return 4; }
-    spawnChaos(w, true); spawnCannons(w); spawnSpears(w, true); return 4;
+    if (w % 6 === 4) {
+      spawnChaos(w); spawnWall(w, true);
+      const wall = game.hazards[game.hazards.length - 1];
+      // Celah wall tetap bisa dilewati; pusaran tidak menutup jalur yang ditandai biru.
+      for (const h of game.hazards) if (h.type === 'pinwheel') h.safeBand = [wall.gapY, wall.gapY + wall.gap];
+      return 4.5;
+    }
+    spawnChaos(w, true); spawnCannons(w, false, 2); return 4.5;
   }
   if (game.pattern === 6) {
     spawnWall(w + game.turn);
@@ -606,8 +612,8 @@ function spawnAttackPattern() {
   if (game.pattern === 17) { spawnCannons(w); if (w % 2) spawnVolley(w, false, .4); return 1.65; }
   if (game.pattern === 18) { setMovement('free'); spawnCannons(w); if (w % 2) spawnRing(w); return 2; }
   if (game.pattern === 19) return spawnShieldArrows(w);
-  if (game.pattern === 20) { spawnChaos(w); spawnCannons(w, false, 2); if (game.phase >= 3) spawnSlash(w, .8); return 2.7; }
-  if (game.pattern === 21) { spawnChaos(w, true); spawnSlash(w, .55); if (game.phase > 1) spawnVolley(w, true, .8); return 2.1; }
+  if (game.pattern === 20) { spawnChaos(w); if (w % 2) spawnCannons(w, false, 1); return 3.4; }
+  if (game.pattern === 21) { spawnChaos(w, true); if (w % 2) spawnSlash(w, 1); return 3.2; }
   return [1.05, 5.2, .95, .8 + game.phase * .6, 3.6, 3.2,
     1 + ARENA.w / (295 * PHASES[game.phase].speed * combatScale()),
     3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 5.8][game.pattern];
@@ -618,17 +624,17 @@ function releaseBullets(h) {
   if (game.bullets.length > 200) return;
   const speed = PHASES[game.phase].speed * combatScale();
   if (h.type === 'pinwheel' || h.type === 'scythe') {
-    const scythe = h.type === 'scythe', count = scythe ? 4 : 8;
+    const scythe = h.type === 'scythe', count = scythe ? 3 : 6;
     for (let i = 0; i < count; i++) {
-      if (!scythe && i === 0) continue; // Satu lengan kosong berputar bersama pusaran.
-      const angle = h.rotation + (scythe ? (i - 1.5) * .36 : i * Math.PI * 2 / count);
-      const velocity = (scythe ? 175 : 145) * speed;
+      if (!scythe && i === 0) continue; // Bukaan 120 derajat berputar bersama pusaran.
+      const angle = h.rotation + (scythe ? (i - 1) * .46 : i * Math.PI * 2 / count);
+      const velocity = (scythe ? 135 : 120) * speed;
       game.bullets.push({ type: scythe ? 'scythe' : 'fire', x: h.x, y: h.y,
         vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity,
-        turn: h.direction * (scythe ? .85 : .32), r: scythe ? 5 : 4,
-        bounces: scythe ? 2 : 0, life: scythe ? 3.2 : 2.8 });
+        turn: h.direction * (scythe ? .48 : .16), r: scythe ? 5 : 4,
+        bounces: scythe ? 1 : 0, life: scythe ? 2.4 : 2.5, safeBand: h.safeBand });
     }
-    h.rotation += h.direction * (scythe ? .52 : .27);
+    h.rotation += h.direction * (scythe ? .38 : .2);
   } else if (h.type === 'spear') {
     game.bullets.push({ type: 'spear', x: h.x, y: h.y, vx: 0, vy: 520 * speed, r: 5 });
   } else if (h.type === 'ribbon') {
@@ -900,8 +906,8 @@ function update(dt) {
   if (!tutorial) {
     game.spawnTime -= dt;
     const clear = !game.hazards.some(h => h.type !== 'heal') && game.bullets.length === 0;
-    const overlap = [5, 17, 18, 20, 21].includes(game.pattern);
-    if (!clear && !overlap) game.spawnTime = Math.max(.12, game.spawnTime);
+    const overlap = [5, 17, 18].includes(game.pattern);
+    if (!clear && !overlap) game.spawnTime = Math.max([20, 21].includes(game.pattern) ? .35 : .12, game.spawnTime);
     if (game.spawnTime <= 0 && game.attackTime < duration - 2.6 && (clear || overlap) && game.hazards.length < 48 && game.bullets.length < 170) game.spawnTime = spawnAttackPattern() + .12;
   }
   // COLLISION DETECTION: warning tidak memberi damage, hitbox hati radius 4 pixel.
@@ -940,7 +946,7 @@ function update(dt) {
       h.emit -= dt;
       if (h.emit <= 0) {
         releaseBullets(h);
-        h.emit += h.type === 'scythe' ? .46 : h.type === 'pinwheel' ? .21 - game.phase * .01 : h.combo ? .34 : .3 - (game.phase - 1) * .015;
+        h.emit += h.type === 'scythe' ? .65 : h.type === 'pinwheel' ? .32 - game.phase * .01 : h.combo ? .34 : .3 - (game.phase - 1) * .015;
       }
     }
     if (h.type === 'wall') {
