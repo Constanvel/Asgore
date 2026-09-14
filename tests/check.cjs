@@ -11,6 +11,8 @@ const element = (dataset = {}) => ({ dataset, style: {}, classList: { toggle: no
   setAttribute: noop, addEventListener: noop, focus: noop,
   getBoundingClientRect: () => ({ width: 800, height: 140, left: 0, top: 0 }) });
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
+if (elements['battle-music']) Object.assign(elements['battle-music'], { paused: true, currentTime: 0,
+  play() { this.paused = false; return Promise.resolve(); }, pause() { this.paused = true; } });
 const buttons = ['fight', 'act', 'item', 'mercy'].map(action => element({ action }));
 elements.battle.getContext = () => paint;
 elements.battle.getBoundingClientRect = () => ({ width: 800, height: 800, left: 0, top: 0 });
@@ -23,7 +25,7 @@ const scope = vm.createContext({ document, window: { matchMedia: () => ({ matche
 const run = code => vm.runInContext(code, scope);
 assert.doesNotThrow(() => run(fs.readFileSync(path.join(root, 'script.js'), 'utf8')), 'game harus bisa dimuat dengan DOM asli');
 assert.equal(run('game.state'), 'title');
-assert.ok(!html.includes('<audio'), 'tidak memuat audio eksternal');
+assert.ok(html.includes('assets/megalovania.mp3'), 'musik memakai file MP3 pengguna');
 assert.equal(run('soundEnabled'), true, 'audio default ON');
 run('unlockAudio()'); // Browser tanpa AudioContext juga tidak boleh crash.
 run('openMenu(); chooseAction("fight")');
@@ -64,11 +66,10 @@ for (let variant = 0; variant < 5; variant++) {
 }
 run('game.hazards = []; spawnWall(3)');
 assert.ok(run('game.hazards[0].gapSpeed !== 0'), 'varian wall dengan celah bergerak');
-for (let combo = 0; combo < 4; combo++) {
+for (let combo = 0; combo < 6; combo++) {
   run(`game.pattern = 5; game.wave = ${combo}; game.hazards = []; spawnAttackPattern()`);
   const types = run('[...new Set(game.hazards.map(h => h.type))].sort().join(",")');
-  for (const type of [['spiral', 'wall'], ['pillar', 'spear'], ['slash'], ['guardArrow']][combo]) assert.ok(types.includes(type));
-  assert.ok(types.split(',').length <= 2, 'combo maksimal dua keluarga');
+  for (const type of [['pinwheel','beam'], ['scythe','pillar','slash'], ['shift','hurdle'], ['guardArrow'], ['pinwheel','wall','slash'], ['scythe','beam','spear']][combo]) assert.ok(types.includes(type), types);
 }
 run('game.hazards = []; spawnZones(0)');
 assert.ok(run('game.hazards[0].warn - game.hazards[0].reveal > ARENA.w / 3 / (310 * combatScale())'));
@@ -281,4 +282,32 @@ for (let phase = 1; phase <= 4; phase++) {
   run(`game.phase = ${phase}; game.hazards = []; spawnSlash(0)`);
   assert.ok(run('game.hazards.every(h => h.warn >= .5)'), 'semua slash mendapat warning minimal setengah detik');
 }
-console.log('PASS: tutorial, timing tiers/timeout/pause, phases, outro, patterns, movement, audio and healing');
+run('resetGame(); openMenu(); startAttack()');
+assert.equal(run('game.pattern'), 20, 'gelombang pertama langsung memakai pola ahli');
+run('game.hazards = []; game.bullets = []; spawnChaos(0, true); releaseBullets(game.hazards[0])');
+assert.ok(run('game.bullets.every(b => b.type === "scythe" && b.turn && b.bounces === 2)'), 'sabit melengkung dan memantul');
+const speedBefore = run('Math.hypot(game.bullets[0].vx, game.bullets[0].vy)');
+const vxBefore = run('game.bullets[0].vx');
+run('moveBullet(game.bullets[0], .05)');
+assert.notEqual(run('game.bullets[0].vx'), vxBefore);
+assert.ok(Math.abs(run('Math.hypot(game.bullets[0].vx, game.bullets[0].vy)') - speedBefore) < .00001);
+run('game.hazards = []; game.bullets = []; game.pattern = 20; game.spawnTime = 0; game.wave = 0; spawnChaos(0); update(.01)');
+assert.equal(run('game.wave'), 1, 'gelombang baru bertumpuk dengan emitter yang masih aktif');
+run('game.hazards = []; game.bullets = []; setMovement("free"); game.pattern = 5; game.wave = 3; spawnAttackPattern()');
+assert.equal(run('game.movement'), 'shield');
+assert.equal(run('game.hazards.filter(h => h.type === "guardArrow").length'), 10);
+const arrivals = run('game.hazards.map(h => h.warn + h.travel - h.age).sort((a,b) => a-b)');
+assert.ok(arrivals.slice(1).every((t,i) => t - arrivals[i] >= .16), 'panah ahli cepat tetapi tidak menuntut dua arah bersamaan');
+run('game.wave = 4; spawnAttackPattern()');
+assert.equal(run('game.movement'), 'free');
+assert.ok(run('!game.hazards.some(h => h.type === "guardArrow")'), 'mode bebas tidak mewarisi panah perisai');
+run('music.currentTime = 42; resetGame()');
+assert.equal(elements['battle-music'].currentTime, 0);
+run('openMenu()');
+assert.equal(run('wantsBattleMusic()'), true);
+run('leavePage()');
+assert.equal(elements['battle-music'].paused, true);
+assert.equal(run('wantsBattleMusic()'), false);
+run('pageActive = true; game.paused = false; finishGame("victory")');
+assert.equal(run('wantsBattleMusic()'), false, 'outro beralih ke melodi lembut');
+console.log('PASS: chaos/curved bullets/overlap/shield transitions, MP3 lifecycle, tutorial, timing and endings');

@@ -10,10 +10,10 @@ const ARENA = { x: 12, y: 140, w: 776, h: 260 };
 const MAX_HP = 40;
 const MAX_BOSS_HP = 180;
 const PHASES = [null,
-  { speed: 1.25, warning: 0.58, duration: 13, bpm: 156, name: 'I · OPENING TRIAL' },
-  { speed: 1.5, warning: 0.5, duration: 15, bpm: 172, name: 'II · ROYAL PRESSURE' },
-  { speed: 1.7, warning: 0.55, duration: 17, bpm: 176, name: 'III · BROKEN CROWN' },
-  { speed: 1.9, warning: 0.55, duration: 27, bpm: 184, name: 'IV · LAST GATE COLLAPSE' }
+  { speed: 1.55, warning: .5, duration: 16, bpm: 174, name: 'I · CHAOS OVERTURE' },
+  { speed: 1.8, warning: .46, duration: 18, bpm: 188, name: 'II · SHATTERED ORBIT' },
+  { speed: 2.05, warning: .42, duration: 20, bpm: 202, name: 'III · CROWN FRENZY' },
+  { speed: 2.25, warning: .4, duration: 32, bpm: 216, name: 'IV · TOTAL COLLAPSE' }
 ];
 let touchTarget = null;
 let touchPointer = null;
@@ -161,6 +161,7 @@ function clampBossX(x) { return clamp(x, 90 * bossScale() + 8, VIEW.w - 104 * bo
 function bossCenterY() { return ARENA.y - 30 - 78 * bossScale(); }
 
 function drawUI() {
+  syncMusic();
   $('player-hp').textContent = `${game.hp} / ${MAX_HP}`;
   $('boss-hp').textContent = `${game.bossHp} / ${MAX_BOSS_HP}`;
   $('player-fill').style.width = `${game.hp / MAX_HP * 100}%`;
@@ -184,7 +185,7 @@ function drawUI() {
   const ending = game.state === 'endingScreen';
   $('scene-screen').hidden = !ending && game.state !== 'title';
   $('scene-title').textContent = ending ? 'THE LAST GATE OPENS' : 'THE LAST GATE';
-  $('scene-description').textContent = ending ? (game.result === 'mercy' ? 'You freed KING AVARON from his oath.' : 'You defeated KING AVARON.') : 'Satu gerbang. Satu sumpah yang belum padam.';
+  $('scene-description').textContent = ending ? (game.result === 'mercy' ? 'You freed KING AVARON from his oath.' : 'You defeated KING AVARON.') : 'CHAOS · EXPERT — Satu gerbang. Tanpa ampun.';
   $('tutorial-button').hidden = ending; $('skip-button').hidden = ending;
   $('replay-button').hidden = !ending; $('title-button').hidden = !ending;
 }
@@ -276,7 +277,7 @@ function startAttack() {
   }
   game.state = 'bossAttack';
   // Pola baru masuk giliran normal; ACT/ITEM memperpanjang rotasi hingga semua pola tampil.
-  const deck = game.phase === 1 ? [0, 2, 6, 1, 3, 19] : game.phase === 2 ? [2, 19, 15, 6, 1, 16, 7] : [3, 18, 17, 16, 13, 8, 19, 4, 9, 10, 11, 12];
+  const deck = game.phase === 1 ? [20, 17, 19, 15, 21, 16] : game.phase === 2 ? [21, 19, 20, 15, 18, 16, 7] : [20, 21, 17, 19, 15, 16, 13, 7];
   game.pattern = game.pendingTrap ? 14 : game.phase === 4 ? 5 : deck[game.turn % deck.length];
   if (game.pattern === 7 && !game.ruleKnown) {
     game.state = 'playerAction'; game.ruleKnown = true;
@@ -322,10 +323,12 @@ function startAttack() {
     'BENANG TAKDIR — Atas/bawah: pindah jalur. Kiri/kanan: bergerak di jalur. Hindari dua jalur bertanda.',
     'PENGADILAN SINAR — Meriam mengunci posisi saat muncul. Keluar dari garis bidik sebelum sinar menyala.',
     'CROSSFIRE — Tinggalkan titik bidik. Meriam bersilang, lalu cincin menutup ruang gerak.',
-    'PERISAI HIJAU — Hati terkunci di tengah. WASD / panah: hadapkan perisai ke asal panah. Panah biru tiba paling dahulu.'
+    'PERISAI HIJAU — Rentetan lima panah. Hadapkan perisai ke asal panah; yang biru tiba paling dahulu.',
+    'CROWN VORTEX — Dua pusaran berlawanan arah, sinar membidik posisi terakhirmu. Berputar lewat sela, jangan diam di sudut.',
+    'REAPER CAROUSEL — Sabit melengkung dan memantul. Tinggalkan bidikan sebelum tebasan menyusul.'
   ];
   game.help = tips[game.pattern];
-  showDialogue('BERTAHAN', game.pattern === 5 ? 'Sumpah terakhir. Tanda + hijau memulihkan 6 HP.' : 'Baca celah. Tunggu jeda.');
+  showDialogue('CHAOS · EXPERT', game.pattern === 5 ? 'Sumpah terakhir. Tanda + hijau memulihkan 6 HP.' : '“Bahkan jeda harus kau perjuangkan.”');
   drawUI();
   canvas.focus({ preventScroll: true });
 }
@@ -498,19 +501,22 @@ function faceShield(key) {
 function spawnShieldArrows(w) {
   if (game.movement !== 'shield') setMovement('shield');
   const sequence = [0, 1, 2, 3, 1, 3, 0, 2];
-  const spacing = .5 - game.phase * .045;
-  for (let i = 0; i < 3; i++) addHazard('guardArrow', {
-    direction: sequence[(w * 3 + i + game.turn) % sequence.length],
-    travel: 1.05 - game.phase * .08, age: -i * spacing
-  }, .5, 1.08 - game.phase * .08);
-  return spacing * 3 + .18;
+  const spacing = .34 - game.phase * .025;
+  for (let i = 0; i < 5; i++) {
+    const travel = .86 - game.phase * .045 - (i % 2 ? .07 : 0);
+    addHazard('guardArrow', {
+      direction: sequence[(w * 5 + i + game.turn) % sequence.length],
+      travel, age: -i * spacing
+    }, .4, travel + .04);
+  }
+  return spacing * 5 + .3;
 }
 function spawnGravityRun(w) {
   const [gx, gy] = [[0, 1], [1, 0], [0, -1], [-1, 0]][w % 4];
   addHazard('shift', { gx, gy }, .85, .12);
   const vertical = gy !== 0, scale = combatScale();
   const length = vertical ? ARENA.w : ARENA.h;
-  const velocity = (game.phase >= 3 ? 330 : 275) * scale;
+  const velocity = (game.phase >= 3 ? 380 : 325) * scale;
   for (let i = 0; i < 3; i++) {
     const size = (i % 2 ? 96 : 50) * scale, thickness = 22 * scale;
     const fromEnd = w % 2 === 1;
@@ -526,7 +532,7 @@ function spawnGravityRun(w) {
   playSFX('gravity');
   return 3.5 + length / velocity;
 }
-function spawnCannons(w, lanes = false, count = 2) {
+function spawnCannons(w, lanes = false, count = lanes ? 2 : 3) {
   const safe = (w + 1) % 3;
   for (let i = 0; i < count; i++) {
     const lane = (safe + i + 1) % 3;
@@ -536,7 +542,19 @@ function spawnCannons(w, lanes = false, count = 2) {
     const angle = lanes ? (fromRight ? Math.PI : 0) : Math.atan2(game.y - y, game.x - x);
     addHazard('beam', { x, y, x2: x + Math.cos(angle) * ARENA.w * 2,
       y2: y + Math.sin(angle) * ARENA.w * 2, width: (lanes ? 30 : 40) * combatScale(),
-      angle, age: -i * (lanes ? 0 : .18) }, lanes ? .85 : .78, .4);
+      angle, age: -i * (lanes ? 0 : .16) }, lanes ? .7 : .6, .34);
+  }
+}
+// CHAOS GENERATORS: pusaran berlawanan dan sabit melengkung memakai collision yang sama.
+function spawnChaos(w, scythes = false) {
+  for (let side = 0; side < 2; side++) {
+    const x = ARENA.x + ARENA.w * (side ? .8 : .2);
+    const y = ARENA.y + ARENA.h * (w % 2 ? .65 : .2);
+    addHazard(scythes ? 'scythe' : 'pinwheel', {
+      x, y, rotation: Math.atan2(game.y - y, game.x - x),
+      direction: (side ? -1 : 1) * (w % 2 ? -1 : 1), emit: 0,
+      age: -side * .18
+    }, .6, scythes ? 1.4 : 2.6);
   }
 }
 // Posisi teleport menentukan sisi asal volley/wall dan titik spiral berikutnya.
@@ -562,23 +580,15 @@ function spawnAttackPattern() {
   if (game.pattern === 3) for (let i = 0; i < Math.min(5, game.phase); i++) spawnSlash(w + i, i * .58);
   if (game.pattern === 4) spawnZones(w);
   if (game.pattern === 5) {
-    // Maksimal dua keluarga serangan; tunggu layar bersih sebelum combo berikutnya.
+    // Pergantian mode membersihkan serangan lama agar heart terkunci tidak terkena peluru bebas.
+    game.bullets = []; game.hazards = game.hazards.filter(h => h.type === 'heal');
     setMovement('free');
-    if (w % 4 === 0) {
-      spawnWall(w, true); const wall = game.hazards[game.hazards.length - 1];
-      spawnSpiral(w, true);
-      game.hazards[game.hazards.length - 1].safeBand = [wall.gapY, wall.gapY + wall.gap];
-      return 5.4;
-    }
-    if (w % 4 === 1) {
-      spawnFlame(w); spawnSpears(w, true);
-      // Satu kolom aman yang sama untuk api dan hujan tombak.
-      const safeX = ARENA.x + ARENA.w * .25, safeWidth = ARENA.w / 8;
-      game.hazards = game.hazards.filter(h => h.type === 'heal' || (h.type === 'pillar' ? h.x + h.w < safeX - safeWidth / 2 || h.x > safeX + safeWidth / 2 : Math.abs(h.x - safeX) > safeWidth / 2));
-      return 3.4;
-    }
-    if (w % 4 === 2) { for (let i = 0; i < 4; i++) spawnSlash(w + i, i * .95); return 4.2; }
-    return spawnShieldArrows(w) + .5;
+    if (w % 6 === 0) { spawnChaos(w); spawnCannons(w); return 4; }
+    if (w % 6 === 1) { spawnChaos(w, true); spawnFlame(w); for (let i = 0; i < 3; i++) spawnSlash(w + i, .7 + i * .55); return 4; }
+    if (w % 6 === 2) return spawnGravityRun(w + game.turn);
+    if (w % 6 === 3) { spawnShieldArrows(w); spawnShieldArrows(w + 1); const arrows = game.hazards.filter(h => h.type === 'guardArrow'); arrows.slice(5).forEach(h => h.age -= 1.5); return 4.2; }
+    if (w % 6 === 4) { spawnChaos(w); spawnWall(w, true); spawnSlash(w, 1.1); return 4; }
+    spawnChaos(w, true); spawnCannons(w); spawnSpears(w, true); return 4;
   }
   if (game.pattern === 6) {
     spawnWall(w + game.turn);
@@ -596,14 +606,30 @@ function spawnAttackPattern() {
   if (game.pattern === 17) { spawnCannons(w); if (w % 2) spawnVolley(w, false, .4); return 1.65; }
   if (game.pattern === 18) { setMovement('free'); spawnCannons(w); if (w % 2) spawnRing(w); return 2; }
   if (game.pattern === 19) return spawnShieldArrows(w);
+  if (game.pattern === 20) { spawnChaos(w); spawnCannons(w, false, 2); if (game.phase >= 3) spawnSlash(w, .8); return 2.7; }
+  if (game.pattern === 21) { spawnChaos(w, true); spawnSlash(w, .55); if (game.phase > 1) spawnVolley(w, true, .8); return 2.1; }
   return [1.05, 5.2, .95, .8 + game.phase * .6, 3.6, 3.2,
     1 + ARENA.w / (295 * PHASES[game.phase].speed * combatScale()),
     3.8, 1.7, 2.3, 1.45, 1.7, 3.8, 5.8][game.pattern];
 }
 
 function releaseBullets(h) {
+  // Batas kerja per frame; emisi dilewati jika layar sudah padat.
+  if (game.bullets.length > 200) return;
   const speed = PHASES[game.phase].speed * combatScale();
-  if (h.type === 'spear') {
+  if (h.type === 'pinwheel' || h.type === 'scythe') {
+    const scythe = h.type === 'scythe', count = scythe ? 4 : 8;
+    for (let i = 0; i < count; i++) {
+      if (!scythe && i === 0) continue; // Satu lengan kosong berputar bersama pusaran.
+      const angle = h.rotation + (scythe ? (i - 1.5) * .36 : i * Math.PI * 2 / count);
+      const velocity = (scythe ? 175 : 145) * speed;
+      game.bullets.push({ type: scythe ? 'scythe' : 'fire', x: h.x, y: h.y,
+        vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity,
+        turn: h.direction * (scythe ? .85 : .32), r: scythe ? 5 : 4,
+        bounces: scythe ? 2 : 0, life: scythe ? 3.2 : 2.8 });
+    }
+    h.rotation += h.direction * (scythe ? .52 : .27);
+  } else if (h.type === 'spear') {
     game.bullets.push({ type: 'spear', x: h.x, y: h.y, vx: 0, vy: 520 * speed, r: 5 });
   } else if (h.type === 'ribbon') {
     const gapY = clamp(game.y - 32, ARENA.y + 12, ARENA.y + ARENA.h - 76);
@@ -698,7 +724,7 @@ function hitPlayer() {
     playSFX('playerHit'); return;
   }
   game.hp = Math.max(0, game.hp - 4);
-  game.invincible = .65; // Satu kesalahan tidak menjadi beberapa hit dari tumpukan peluru.
+  game.invincible = .4; // Lebih menekan, tetapi satu frame tetap hanya memberi satu hit.
   game.hurtFlash = 0.28;
   game.shake = 0.2;
   burst(game.x, game.y);
@@ -815,6 +841,11 @@ function updatePlayer(dt) {
   game.moving = Math.hypot(game.x - previousX, game.y - previousY) > 0.001;
 }
 function moveBullet(b, dt) {
+  if (b.turn) {
+    const angle = b.turn * dt, vx = b.vx;
+    b.vx = vx * Math.cos(angle) - b.vy * Math.sin(angle);
+    b.vy = vx * Math.sin(angle) + b.vy * Math.cos(angle);
+  }
   if (b.gravity) b.vy += b.gravity * dt;
   b.x += b.vx * dt; b.y += b.vy * dt;
   if (Number.isFinite(b.life)) b.life -= dt;
@@ -869,8 +900,9 @@ function update(dt) {
   if (!tutorial) {
     game.spawnTime -= dt;
     const clear = !game.hazards.some(h => h.type !== 'heal') && game.bullets.length === 0;
-    if (!clear) game.spawnTime = Math.max(.3, game.spawnTime);
-    if (game.spawnTime <= 0 && game.attackTime < duration - 2.6 && clear) game.spawnTime = spawnAttackPattern() + .3;
+    const overlap = [5, 17, 18, 20, 21].includes(game.pattern);
+    if (!clear && !overlap) game.spawnTime = Math.max(.12, game.spawnTime);
+    if (game.spawnTime <= 0 && game.attackTime < duration - 2.6 && (clear || overlap) && game.hazards.length < 48 && game.bullets.length < 170) game.spawnTime = spawnAttackPattern() + .12;
   }
   // COLLISION DETECTION: warning tidak memberi damage, hitbox hati radius 4 pixel.
   for (const h of game.hazards) {
@@ -904,11 +936,11 @@ function update(dt) {
         burst(h.x || ARENA.x + ARENA.w / 2, h.y || ARENA.y + ARENA.h / 2, 8);
       }
     }
-    if (h.type === 'spiral') {
+    if (['spiral', 'pinwheel', 'scythe'].includes(h.type)) {
       h.emit -= dt;
       if (h.emit <= 0) {
         releaseBullets(h);
-        h.emit += h.combo ? .34 : .3 - (game.phase - 1) * .015;
+        h.emit += h.type === 'scythe' ? .46 : h.type === 'pinwheel' ? .21 - game.phase * .01 : h.combo ? .34 : .3 - (game.phase - 1) * .015;
       }
     }
     if (h.type === 'wall') {
@@ -1063,7 +1095,17 @@ function drawHazard(h) {
   if (h.age < 0) return;
   const active = h.age >= h.warn && !(h.age < h.safeUntil);
   const pulse = Math.floor(h.age * 9) % 2 ? '#b39158' : '#706044';
-  if (h.type === 'guardArrow') {
+  if (h.type === 'pinwheel' || h.type === 'scythe') {
+    const color = h.type === 'scythe' ? '#e194ff' : '#ff7957';
+    ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.direction * game.time * 2);
+    ctx.globalAlpha = active ? .9 : .5;
+    ctx.setLineDash(active ? [] : [4, 5]);
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, active ? 15 : 26, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); line(5, 0, 20, 7, color, 3); }
+    ctx.restore();
+  } else if (h.type === 'guardArrow') {
     const next = !game.hazards.some(a => a.type === 'guardArrow' && a.age >= 0 && a.warn + a.travel - a.age < h.warn + h.travel - h.age);
     const angle = h.direction * Math.PI / 2 - Math.PI / 2;
     const progress = clamp((h.age - h.warn) / h.travel, 0, 1);
@@ -1303,7 +1345,12 @@ function draw() {
   }
   for (const h of game.hazards) if (h.type !== 'heal') drawHazard(h);
   for (const b of game.bullets) {
-    if (b.type === 'spear') {
+    if (b.type === 'scythe') {
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + game.time * 7);
+      ctx.strokeStyle = '#e194ff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, 8, -.8, Math.PI * 1.25); ctx.stroke();
+      line(-5, 5, 6, -6, '#fff1ff', 2); ctx.restore();
+    } else if (b.type === 'spear') {
       rect(b.x - 1, b.y - 13, 3, 23, COLORS.gold);
       pixelSprite(['wwwww', '.www.', '..w..'], b.x - 5, b.y + 6, 2, { w: COLORS.white });
     } else {
@@ -1376,7 +1423,10 @@ function draw() {
   }
 }
 
-// 6. AUDIO ORIGINAL. Motif The Last Gate dan SFX dibuat dengan oscillator, tanpa aset audio.
+// 6. AUDIO. MP3 pengguna selama battle; motif original yang lembut untuk title/tutorial/outro.
+const music = $('battle-music');
+music.volume = .42;
+let musicRequest = false;
 let musicBeat = 0, musicTime = 0;
 let audio = null;
 let soundEnabled = true;
@@ -1384,17 +1434,28 @@ let lastAttackSound = -1;
 let pageActive = !document.hidden;
 const activeSounds = new Set();
 function audioAllowed() { return soundEnabled && pageActive && !document.hidden && !game?.paused; }
+function wantsBattleMusic() { return audioAllowed() && ['battleMenu', 'playerAction', 'attackMinigame', 'bossAttack', 'phaseTransition'].includes(game?.state); }
 function stopAudio() {
+  music.pause();
   for (const oscillator of activeSounds) { oscillator.stop(); oscillator.onended(); }
   if (audio && audio.state !== 'closed') audio.suspend().catch(() => {});
 }
 function syncMusic(restart = false) {
   if (restart) {
+    music.pause(); music.currentTime = 0;
     musicBeat = 0; musicTime = 0;
     for (const oscillator of activeSounds) { oscillator.stop(); oscillator.onended(); }
   }
+  if (!wantsBattleMusic()) { music.pause(); return; }
+  if (music.paused && !musicRequest) {
+    musicRequest = true;
+    music.play().then(() => { if (!wantsBattleMusic()) music.pause(); })
+      .catch(() => {}).finally(() => { musicRequest = false; });
+  }
 }
+music.addEventListener('error', () => { $('sound-button').title = 'Musik gagal dimuat: assets/megalovania.mp3'; });
 function updateMusic(dt) {
+  if (wantsBattleMusic()) return;
   if (!audioAllowed() || !audio || audio.state !== 'running' || game.state === 'gameOver') return;
   musicTime -= dt;
   if (musicTime > 0) return;
