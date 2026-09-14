@@ -40,11 +40,13 @@ h2 { margin: 0; font: 16px var(--pixel); letter-spacing: 2px; }
 .continue-button { align-self: flex-end; background: #000; border: 0; color: var(--gold); padding: 3px 6px; font-size: 9px; white-space: nowrap; cursor: pointer; }
 .continue-button:hover { color: #fff; }
 .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; transition: opacity .2s; }
-.action { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 2px; border: 3px solid var(--gold); background: #000; color: var(--gold); transition: all .12s ease; }
+.action { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 2px; border: 3px solid var(--gold); background: #000; color: var(--gold); }
 .action > span:nth-child(2) { font: 18px var(--pixel); letter-spacing: 1px; }
 .action-icon { font-size: 18px; }
 .action:disabled { opacity: .22; }
-.action.selected:not(:disabled), .action:hover:not(:disabled), .action:focus-visible { color: #ffeb48; border-color: #ffeb48; background: #261c06; box-shadow: 0 0 8px #ffb52e44; }
+.action.selected:not(:disabled), .action:hover:not(:disabled), .action:focus-visible { color: #ffff00; border-color: #ffff00; background: #000; }
+.action.selected:not(:disabled) .action-icon { font-size: 0; }
+.action.selected:not(:disabled) .action-icon::before { content: '♥'; font: 18px monospace; color: #ff304b; }
 .action.ready:not(:disabled) { border-color: #ffffff; color: #ffffff; }
 body[data-state='bossAttack'] .actions { opacity: .65; pointer-events: none; }
 body[data-phase='3'], body[data-phase='4'] { background: #0a0102; }
@@ -99,6 +101,7 @@ body[data-movement='platform'] .jump-button, body[data-movement='gravity'] .jump
   .action { gap: 3px; padding: 7px 1px; min-height: 44px; }
   .action > span:nth-child(2) { font-size: 13px; }
   .action-icon { font-size: 13px; }
+  .action.selected:not(:disabled) .action-icon::before { font-size: 14px; }
 }
 @media (max-width: 360px) {
   .player-status { gap: 4px; font-size: 9px; }

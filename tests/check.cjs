@@ -142,11 +142,12 @@ run('setMovement("lanes"); game.lane = 1; keys.clear(); keys.add("arrowup"); upd
 assert.equal(run('game.lane'), 0, 'satu tekan pindah satu jalur');
 run('keys.clear(); updatePlayer(.1); keys.add("arrowdown"); updatePlayer(.1)');
 assert.equal(run('game.lane'), 1);
-run('setMovement("ice"); game.x = ARENA.x + ARENA.w / 2; keys.clear(); keys.add("d"); updatePlayer(.1); keys.clear(); updatePlayer(.05)');
-const drift = run('game.driftX');
-assert.ok(drift > 0, 'momentum tetap ada setelah arah dilepas');
-run('keys.add("shift"); updatePlayer(.1)');
-assert.ok(run('game.driftX') < drift / 3, 'SLOW mengerem momentum');
+run('setMovement("free"); game.x = ARENA.x + ARENA.w / 2; keys.clear(); keys.add("d"); updatePlayer(.1); keys.clear()');
+const stoppedX = run('game.x');
+run('updatePlayer(.1)');
+assert.equal(run('game.x'), stoppedX, 'hati langsung berhenti tanpa mode es');
+run('game.pattern = 18; game.hazards = []; spawnAttackPattern()');
+assert.equal(run('game.movement'), 'free', 'crossfire menggunakan gerakan biasa');
 run('keys.clear(); game.hazards = []; spawnCannons(0, true)');
 assert.equal(run('game.hazards.length'), 2);
 run('game.x = ARENA.x + ARENA.w / 2; game.y = game.hazards[0].y');
@@ -167,4 +168,13 @@ run('setPaused(true)');
 assert.equal(elements['battle-music'].paused, true, 'musik berhenti ketika pause');
 run('music.currentTime = 42; resetGame()');
 assert.equal(elements['battle-music'].currentTime, 0, 'restart mengulang lagu dari awal');
-console.log('PASS: combat, four-way wall-jump, lanes, ice braking, cannons, boss motion, MP3 lifecycle, endings');
+for (const state of ['intro', 'menu', 'playerAction', 'bossAttack', 'victory', 'gameOver']) {
+  run(`game.state = '${state}'; game.paused = false; pageActive = true; music.paused = false; leavePage()`);
+  assert.equal(elements['battle-music'].paused, true, `musik berhenti dari ${state}`);
+  assert.equal(run('audioAllowed()'), false);
+  run('unlockAudio(); syncMusic()');
+  assert.equal(elements['battle-music'].paused, true, 'audio tidak hidup lagi di halaman tidak aktif');
+}
+run('pageActive = true; resetGame(); openMenu(); startAttack(); game.phase = 3; game.movement = "free"; game.hazards = []; game.motionTime = 1.69; updateBoss(.02)');
+assert.ok(run('game.hazards.some(h => h.type === "beam" && h.age < h.warn)'), 'gerakan boss menambah meriam dengan warning');
+console.log('PASS: combat, four-way wall-jump, lanes, no sliding, cannons, boss motion, MP3 lifecycle, endings');
