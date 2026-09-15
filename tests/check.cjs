@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const noop = () => {};
 const paint = new Proxy({}, { get: () => noop, set: () => true });
 const element = (dataset = {}) => ({ dataset, style: {}, classList: { toggle: noop },
-  setAttribute: noop, addEventListener: noop, focus: noop,
+  attributes: {}, setAttribute(name, value) { this.attributes[name] = String(value); }, addEventListener: noop, focus: noop,
   getBoundingClientRect: () => ({ width: 800, height: 140, left: 0, top: 0 }) });
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
 if (elements['battle-music']) Object.assign(elements['battle-music'], { paused: true, currentTime: 0,
@@ -341,4 +341,28 @@ for (let burst = 0; burst < 3; burst++) {
   assert.ok(run(`game.hazards.slice(${burst*2}, ${burst*2+2}).every(h => Math.abs(h.y - (ARENA.y + ARENA.h * (${safe}+1)/4)) > 1)`), 'tiap burst menyisakan satu jalur aman');
 }
 assert.ok(run('game.hazards[0].warn >= ARENA.h / (1300 * combatScale()) + .17'), 'waktu warning cukup untuk melintasi dua lane');
-console.log('PASS: harder gravity/lane sequences, safe routes, parkour, combat and audio');
+//notes Regresi refactor: HUD pemain/boss tetap sinkron, termasuk nilai aksesibilitas.
+run('resetGame(); game.hp = 23; game.bossHp = 90; drawUI()');
+for (const [id, hp, max] of [['player', 23, 40], ['boss', 90, 180]]) {
+  assert.equal(elements[`${id}-hp`].textContent, `${hp} / ${max}`);
+  assert.equal(elements[`${id}-fill`].style.width, `${hp / max * 100}%`);
+  assert.equal(elements[`${id}-meter`].attributes['aria-valuenow'], String(hp));
+}
+//notes Helper lompatan menjaga impuls, larangan double jump, dan pemendekan saat tombol dilepas.
+run('game.grounded = true; game.jumpHeld = false; game.vy = 0; updateJump(true, .5)');
+assert.equal(run('game.vy'), -305);
+assert.equal(run('game.grounded'), false);
+run('game.vy = -200; updateJump(true, .5)');
+assert.equal(run('game.vy'), -200, 'menahan tombol tidak mengulang impuls');
+run('updateJump(false, .5)');
+assert.equal(run('game.vy'), -115, 'melepas tombol memperpendek lompatan');
+assert.equal(run('game.jumpHeld'), false);
+run('game.vy = 50; updateJump(true, .5)');
+assert.equal(run('game.vy'), 50, 'tidak dapat melompat ulang di udara');
+for (const state of ['title', 'tutorialMove', 'tutorialDodge', 'battleMenu', 'bossAttack', 'bossDefeated', 'outroDialog', 'endingScreen', 'gameOver']) {
+  run(`game.state = '${state}'`);
+  assert.equal(run('canMove()'), ['bossAttack', 'tutorialMove', 'tutorialDodge'].includes(state));
+  assert.equal(run('canTakeDamage()'), ['bossAttack', 'tutorialDodge'].includes(state));
+  assert.equal(run('isOutro()'), ['bossDefeated', 'outroDialog', 'endingScreen'].includes(state));
+}
+console.log('PASS: gameplay, audio, HUD, helper lompatan, dan state setelah refactor');
